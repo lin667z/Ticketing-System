@@ -1,0 +1,102 @@
+.ant-layout {
+  background: transparent;
+}
+
+.ant-btn,
+.ant-select-selector,
+.ant-picker,
+.ant-input,
+.ant-input-password,
+.ant-pagination-item,
+.ant-modal-content {
+  border-radius: 8px;
+}
+
+.ant-btn {
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease,
+    box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.ant-btn:not(.ant-btn-link):hover {
+  transform: translateY(-1px);
+}
+
+.ant-card-bordered {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+.ant-card-head {
+  background-color: transparent;
+  border-bottom: 1px solid #eef0f4;
+  .ant-card-head-title {
+    color: #333;
+    font-size: 17px;
+    font-weight: 600;
+  }
+}
+.ant-card-body {
+  padding: 24px 28px;
+}
+.ant-table-wrapper {
+  overflow: hidden;
+}
+.ant-table {
+  border-radius: 10px;
+}
+.ant-table-cell {
+  vertical-align: middle;
+}
+.ant-table-thead {
+  .ant-table-cell {
+    background: #f8f9fb !important;
+    color: #333;
+    font-weight: 600;
+  }
+}
+.ant-table-tbody > tr.ant-table-row {
+  transition: background-color 0.18s ease;
+}
+.ant-table-tbody > tr.ant-table-row:hover > td {
+  background: #fbfcfd;
+}
+.ant-modal-header {
+  background-color: #fff;
+  border-bottom: 1px solid #eef0f4;
+  .ant-modal-title {
+    color: #333;
+    font-weight: 600;
+  }
+}
+
+.amount {
+  color: #ff4d4f;
+  &::before {
+    content: '¥';
+    color: #ff4d4f;
+  }
+}
+
+/* 全局统一个页面的温馨提示样式为极简风 */
+.tips-txt {
+  background: #f8f9fb;
+  border: 1px solid #eef0f4;
+  border-radius: 10px;
+  padding: 16px 18px;
+  color: #666;
+  margin-top: 16px;
+  h2, .title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 12px;
+    margin-top: 0;
+  }
+  p {
+    margin-bottom: 8px;
+    line-height: 1.6;
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+}
