@@ -292,12 +292,15 @@ const columns = [
 ]
 
 onMounted(() => {
+  getOrder()
   timer = setInterval(() => {
-    state.count -= 1000
+    if (state.count > 0) {
+      state.count -= 1000
+    } else {
+      clearInterval(timer)
+    }
     getOrderStatus()
   }, 1000)
-  dayjs.duration(state.count).minutes()
-  getOrder()
 })
 onUnmounted(() => {
   clearInterval(timer)
@@ -307,6 +310,21 @@ const getOrder = () => {
   fetchOrderBySn({ orderSn: query?.sn }).then((res) => {
     if (res.success) {
       state.currentInfo = res.data
+      if (state.currentInfo.orderTime) {
+        // 使用 dayjs 解析带时区的 ISO 8601 字符串，避免时区偏差导致的计算错误
+        const orderTime = dayjs(state.currentInfo.orderTime)
+        const diff = dayjs().diff(orderTime)
+        // 10分钟倒计时 = 600,000毫秒
+        state.count = 600000 - diff
+        if (state.count <= 0) {
+          state.count = 0
+          message.error('订单已超时，请重新下单')
+          // 延迟跳转，让用户看清提示
+          setTimeout(() => {
+            router.push('/ticketSearch')
+          }, 1500)
+        }
+      }
     }
   })
 }

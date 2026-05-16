@@ -99,7 +99,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
-import static org.ticketing_system.biz.ticketservice.common.constant.RedisKeyConstant.LOCK_PURCHASE_TICKETS;
 import static org.ticketing_system.biz.ticketservice.common.constant.RedisKeyConstant.LOCK_PURCHASE_TICKETS_V2;
 import static org.ticketing_system.biz.ticketservice.common.constant.RedisKeyConstant.LOCK_REGION_TRAIN_STATION;
 import static org.ticketing_system.biz.ticketservice.common.constant.RedisKeyConstant.LOCK_REGION_TRAIN_STATION_MAPPING;
@@ -147,11 +146,11 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
 
     @Override
     public TicketPageQueryRespDTO pageListTicketQuery(TicketPageQueryReqDTO requestParam) {
-        // 责任链模式 验证城市名称是否存在、不存在加载缓存以及出发日期不能小于当前日期等等
+        // 责任链模式 必要参数不能为空、必要参数不能不正确【出发日期不能小于当前日期、出发地和目的地不能相同 -> 出发地或目的地不存在】
         ticketPageQueryAbstractChainContext.handler(TicketChainMarkEnum.TRAIN_QUERY_FILTER.name(), requestParam);
         StringRedisTemplate stringRedisTemplate = (StringRedisTemplate) distributedCache.getInstance();
         
-        // 缓存兜底机制：验证映射是否存在，不存在则加载
+        // 获取出发地、目的地的对应站点
         List<Object> stationDetails = stringRedisTemplate.opsForHash()
                 .multiGet(REGION_TRAIN_STATION_MAPPING, Lists.newArrayList(requestParam.getFromStation(), requestParam.getToStation()));
         long count = stationDetails.stream().filter(Objects::isNull).count();
@@ -297,7 +296,12 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
                         .map(Integer::parseInt)
                         .orElseGet(() -> {
                             // 缓存兜底机制：查询余票
-                            Map<String, String> seatMarginMap = seatMarginCacheLoader.load(String.valueOf(each.getTrainId()), String.valueOf(trainStationPriceDO.getSeatType()), trainStationPriceDO.getDeparture(), trainStationPriceDO.getArrival());
+                            Map<String, String> seatMarginMap = seatMarginCacheLoader.load(
+                                    String.valueOf(each.getTrainId()),
+                                    String.valueOf(trainStationPriceDO.getSeatType()),
+                                    trainStationPriceDO.getDeparture(),
+                                    trainStationPriceDO.getArrival()
+                            );
                             return Optional.ofNullable(seatMarginMap.get(String.valueOf(trainStationPriceDO.getSeatType()))).map(Integer::parseInt).orElse(0);
                         });
                 SeatClassDTO seatClassDTO = SeatClassDTO.builder()
@@ -389,18 +393,23 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
         } finally {
             localLockList.forEach(localLock -> {
                 try {
-                    localLock.unlock();
+                    if (localLock.isHeldByCurrentThread()) {
+                        localLock.unlock();
+                    }
                 } catch (Throwable ignored) {
                 }
             });
             distributedLockList.forEach(distributedLock -> {
                 try {
-                    distributedLock.unlock();
+                    if (distributedLock.isHeldByCurrentThread()) {
+                        distributedLock.unlock();
+                    }
                 } catch (Throwable ignored) {
                 }
             });
         }
     }
+
     @Override
     @Transactional(rollbackFor = Throwable.class)
     public TicketPurchaseRespDTO executePurchaseTickets(PurchaseTicketReqDTO requestParam) {
@@ -598,11 +607,11 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
     private final ScheduledExecutorService tokenIsNullRefreshExecutor = Executors.newScheduledThreadPool(1);
 
     private void tokenIsNullRefreshToken(PurchaseTicketReqDTO requestParam, TokenResultDTO tokenResult) {
-        RLock lock = redissonClient.getLock(String.format(LOCK_TOKEN_BUCKET_ISNULL, requestParam.getTrainId()));
-        if (!lock.tryLock()) {
-            return;
-        }
         tokenIsNullRefreshExecutor.schedule(() -> {
+            RLock lock = redissonClient.getLock(String.format(LOCK_TOKEN_BUCKET_ISNULL, requestParam.getTrainId()));
+            if (!lock.tryLock()) {
+                return;
+            }
             try {
                 List<Integer> seatTypes = new ArrayList<>();
                 Map<Integer, Integer> tokenCountMap = new HashMap<>();

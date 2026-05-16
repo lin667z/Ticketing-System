@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="order-date">订票日期：{{ props.orderTime }}</div>
+    <div class="order-date">订票日期：{{ formattedOrderTime }}</div>
     <div>
       <span class="border">{{ departure }}</span>
       <span class="border">{{ '-->' }}</span>
@@ -16,6 +16,9 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
+import dayjs from 'dayjs'
+
 const props = defineProps({
   orderTime: String,
   departure: String,
@@ -23,6 +26,11 @@ const props = defineProps({
   trainNumber: String,
   ridingDate: String,
   departureTime: String
+})
+
+const formattedOrderTime = computed(() => {
+  if (!props.orderTime) return '--'
+  return dayjs(props.orderTime).format('YYYY-MM-DD HH:mm:ss')
 })
 </script>
 

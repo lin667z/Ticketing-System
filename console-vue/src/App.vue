@@ -2,7 +2,6 @@
 import { Layout, ConfigProvider, Space } from 'ant-design-vue'
 import { useRoute } from 'vue-router'
 import { ref, watch, onMounted, reactive } from 'vue'
-import BreadHeader from '@/components/bread-header'
 import zhCN from 'ant-design-vue/es/locale/zh_CN'
 import Header from './components/header'
 import Sider from './components/sider'
@@ -54,7 +53,7 @@ watch(
         <Sider v-if="!isLogin" />
         <Content class="app-wrapper" :class="{ isLogin }">
           <ConfigProvider :locale="zhCN">
-            <BreadHeader v-if="!isLogin" /> <router-view /> </ConfigProvider
+            <router-view /> </ConfigProvider
         ></Content>
       </Layout>
     </Layout>
@@ -70,7 +69,7 @@ watch(
   /* min-width: 1230px; */
   .app-wrapper {
     box-sizing: border-box;
-    margin: 18px 24px 32px;
+    margin: 14px 20px 28px;
     transition: margin 0.2s ease, opacity 0.2s ease;
   }
 }

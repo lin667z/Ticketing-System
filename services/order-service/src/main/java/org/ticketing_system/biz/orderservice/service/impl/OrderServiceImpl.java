@@ -51,6 +51,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
@@ -108,7 +109,7 @@ public class OrderServiceImpl implements OrderService {
         // 通过基因法将用户 ID 融入到订单号
         String orderSn = OrderIdGeneratorManager.generateId(requestParam.getUserId());
         OrderDO orderDO = OrderDO.builder().orderSn(orderSn)
-                .orderTime(requestParam.getOrderTime())
+                .orderTime(requestParam.getOrderTime() != null ? requestParam.getOrderTime() : new Date())
                 .departure(requestParam.getDeparture())
                 .departureTime(requestParam.getDepartureTime())
                 .ridingDate(requestParam.getRidingDate())

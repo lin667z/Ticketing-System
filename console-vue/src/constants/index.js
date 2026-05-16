@@ -4,7 +4,7 @@ const TICKET_TYPE_LIST = [
     value: 0
   },
   {
-    label: '学生票',
+    label: '儿童票',
     value: 1
   }
 ]
@@ -15,37 +15,37 @@ const DISCOUNTS_TYPE = [
     value: 0
   },
   {
-    label: '儿童',
+    label: '学生',
     value: 1
   },
   {
-    label: '学生',
+    label: '儿童',
     value: 2
   },
   {
-    label: '残疾军人',
+    label: '残军',
     value: 3
   }
 ]
 
 const TRAIN_TAG = [
   {
-    label: '复',
+    label: '始',
     value: '0',
     color: '#f29c58'
   },
   {
-    label: '智',
+    label: '终',
     value: '1',
     color: '#7db08d'
   },
   {
-    label: '静',
+    label: '过',
     value: '2',
     color: '#64a0f6'
   },
   {
-    label: '铺',
+    label: '复',
     value: '3',
     color: '#5d9bf6'
   }
@@ -61,7 +61,7 @@ const TICKET_STATUS_LIST = [
     value: 10
   },
   {
-    label: '已进站',
+    label: '已改签',
     value: 20
   },
   {
@@ -73,7 +73,7 @@ const TICKET_STATUS_LIST = [
     value: 40
   },
   {
-    label: '已改签',
+    label: '部分退票',
     value: 50
   }
 ]
@@ -96,8 +96,8 @@ const SEAT_NAME_MAP = [
   {
     1: {
       businessClass: '商务座',
-      businessClass: '商务座',
-      businessClass: '商务座'
+      firstClass: '一等卧',
+      secondClass: '二等卧'
     }
   }
 ]
@@ -106,30 +106,31 @@ const SEAT_CLASS_TYPE_LIST = [
   { label: '商务座', code: 0 },
   { label: '一等座', code: 1 },
   { label: '二等座', code: 2 },
-  { label: '二等包座', code: 3 },
+  { label: '二等卧', code: 3 },
   { label: '一等卧', code: 4 },
-  { label: '二等卧', code: 5 },
-  { label: '软卧', code: 6 },
-  { label: '硬卧', code: 7 },
-  { label: '硬座', code: 8 },
+  { label: '硬座', code: 5 },
+  { label: '硬卧', code: 6 },
+  { label: '软座', code: 7 },
+  { label: '软卧', code: 8 },
   { label: '高级软卧', code: 9 },
-  { label: '动卧', code: 10 },
-  { label: '软座', code: 11 },
+  { label: '无座', code: 10 },
+  { label: '硬卧代硬座', code: 11 },
   { label: '特等座', code: 12 },
-  { label: '无座', code: 13 },
+  { label: '动卧', code: 13 },
   { label: '其他', code: 14 }
 ]
 
 const TRAIN_BRAND_LIST = [
-  { code: 0, label: 'GC-高铁城际' },
+  { code: 0, label: 'GC-高铁/城际' },
   { code: 1, label: 'D-动车' },
   { code: 2, label: 'Z-直达' },
   { code: 3, label: 'T-特快' },
   { code: 4, label: 'K-快速' },
   { code: 5, label: '其他' },
-  { code: 6, label: '复兴号' },
-  { code: 7, label: '智能动车组' }
+  { code: 6, label: '临客' },
+  { code: 7, label: '复兴号' }
 ]
+
 const BANK_LIST = [
   {
     img: 'https://epay.ticketing_system.cn/pay/pages/web/images/bank_zfb.gif',
@@ -138,17 +139,17 @@ const BANK_LIST = [
   },
   {
     img: 'https://epay.ticketing_system.cn/pay/pages/web/images/bank_wx.gif',
-    name: '微信',
+    name: '微信支付',
     value: 1
   },
   {
     img: 'https://epay.ticketing_system.cn/pay/pages/web/images/bank_gsyh2.gif',
-    name: '工商银行',
+    name: '中国工商银行',
     value: 10
   },
   {
     img: 'https://epay.ticketing_system.cn/pay/pages/web/images/bank_nyyh2.gif',
-    name: '农业银行',
+    name: '中国农业银行',
     value: 9
   },
   {
@@ -158,7 +159,7 @@ const BANK_LIST = [
   },
   {
     img: 'https://epay.ticketing_system.cn/pay/pages/web/images/bank_jsyh2.gif',
-    name: '建设银行',
+    name: '中国建设银行',
     value: 7
   },
   {
@@ -168,7 +169,7 @@ const BANK_LIST = [
   },
   {
     img: 'https://epay.ticketing_system.cn/pay/pages/web/images/bank_ycyh.gif',
-    name: '邮储银行',
+    name: '中国邮政储蓄银行',
     value: 5
   },
   {
@@ -183,7 +184,7 @@ const BANK_LIST = [
   },
   {
     img: 'https://epay.ticketing_system.cn/pay/pages/web/images/bank_wk.gif',
-    name: '国际卡',
+    name: '银行卡',
     value: 12
   },
   {
@@ -199,16 +200,18 @@ const REGIN_MAP = [
     label: '中国'
   }
 ]
+
 const CHECK_STATUS = [
   {
     value: 0,
-    label: '通过'
+    label: '未审核'
   },
   {
     value: 1,
-    label: '未通过'
+    label: '已审核'
   }
 ]
+
 export {
   TICKET_TYPE_LIST,
   SEAT_NAME_MAP,
@@ -222,4 +225,3 @@ export {
   CHECK_STATUS,
   TRAIN_TAG
 }
-
