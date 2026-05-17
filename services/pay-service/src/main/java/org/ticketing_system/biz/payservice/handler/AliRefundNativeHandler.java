@@ -5,13 +5,10 @@ import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson.JSONObject;
 import com.alipay.api.AlipayApiException;
 import com.alipay.api.AlipayClient;
-import com.alipay.api.AlipayConfig;
-import com.alipay.api.DefaultAlipayClient;
 import com.alipay.api.domain.AlipayTradeRefundModel;
 import com.alipay.api.request.AlipayTradeRefundRequest;
 import com.alipay.api.response.AlipayTradeRefundResponse;
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.ticketing_system.biz.payservice.common.enums.PayChannelEnum;
 import org.ticketing_system.biz.payservice.common.enums.PayTradeTypeEnum;
@@ -21,7 +18,6 @@ import org.ticketing_system.biz.payservice.dto.base.AliRefundRequest;
 import org.ticketing_system.biz.payservice.dto.base.RefundRequest;
 import org.ticketing_system.biz.payservice.dto.base.RefundResponse;
 import org.ticketing_system.biz.payservice.handler.base.AbstractRefundHandler;
-import org.ticketing_system.framework.starter.common.toolkit.BeanUtil;
 import org.ticketing_system.framework.starter.convention.exception.ServiceException;
 import org.ticketing_system.framework.starter.designpattern.strategy.AbstractExecuteStrategy;
 import org.ticketing_system.framework.starter.distributedid.toolkit.SnowflakeIdUtil;
@@ -41,18 +37,16 @@ import java.math.BigDecimal;
 public class AliRefundNativeHandler extends AbstractRefundHandler implements AbstractExecuteStrategy<RefundRequest, RefundResponse> {
 
     private final AliPayProperties aliPayProperties;
+    private final AlipayClient alipayClient;
 
     private final static String SUCCESS_CODE = "10000";
 
     private final static String FUND_CHANGE = "Y";
 
     @Retryable(value = {ServiceException.class}, maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 1.5))
-    @SneakyThrows(value = AlipayApiException.class)
     @Override
     public RefundResponse refund(RefundRequest payRequest) {
         AliRefundRequest aliRefundRequest = payRequest.getAliRefundRequest();
-        AlipayConfig alipayConfig = BeanUtil.convert(aliPayProperties, AlipayConfig.class);
-        AlipayClient alipayClient = new DefaultAlipayClient(alipayConfig);
         AlipayTradeRefundModel model = new AlipayTradeRefundModel();
         model.setOutTradeNo(aliRefundRequest.getOrderSn());
         model.setTradeNo(aliRefundRequest.getTradeNo());

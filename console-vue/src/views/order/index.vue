@@ -1,5 +1,4 @@
 <template>
-  <div v-html="state.html"></div>
   <Space :style="{ width: '100%' }" direction="vertical">
     <Card>
       <div class="tip-wrapper">
@@ -265,7 +264,6 @@ const state = reactive({
   count: 600000,
   currentInfo: null,
   open: false,
-  html: '',
   loading: false,
   isInitiatePayment: false,
   isPaying: false,
@@ -359,11 +357,16 @@ const handlePay = (channel) => {
     subject: `${state.currentInfo.departure}-${state.currentInfo.arrival}`
   }
   fetchPay(body).then((res) => {
-    state.html = res.data?.body
     state.loading = true
     setTimeout(() => {
       state.loading = false
-      window.open(`/aliPay?body=${encodeURIComponent(res.data?.body)}`)
+      const newWin = window.open('', '_blank')
+      if (newWin) {
+        newWin.document.write(res.data?.body)
+        newWin.document.close()
+      } else {
+        message.error('请允许浏览器弹出窗口')
+      }
     }, 500)
   })
 }

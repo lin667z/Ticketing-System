@@ -35,7 +35,7 @@
             }}</span>
             （ <span class="price">￥{{ item?.price }}</span
             >）
-            <span>{{ item.quantity >= 1 ? '有票' : '1张票' }}</span>
+            <span>{{ item.quantity > 0 ? '有票' : '无票' }}</span>
           </div>
         </div>
         <div class="tip">

@@ -103,6 +103,11 @@ public class SeatMarginCacheLoader {
                 }
                 // TODO LUA 脚本执行
                 trainStationRemainingTicketMaps.forEach((cacheKey, cacheMap) -> stringRedisTemplate.opsForHash().putAll(cacheKey, cacheMap));
+            } else {
+                Map<Object, Object> entries = stringRedisTemplate.opsForHash().entries(TRAIN_STATION_REMAINING_TICKET + keySuffix);
+                Map<String, String> cacheMap = new LinkedHashMap<>();
+                entries.forEach((k, v) -> cacheMap.put(String.valueOf(k), String.valueOf(v)));
+                trainStationRemainingTicketMaps.put(TRAIN_STATION_REMAINING_TICKET + keySuffix, cacheMap);
             }
         } finally {
             lock.unlock();

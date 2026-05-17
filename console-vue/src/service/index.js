@@ -186,6 +186,7 @@ const fetchRefundTicket = async (body) => {
     url: '/api/ticket-service/ticket/refund',
     data: body
   })
+  return data
 }
 
 export {

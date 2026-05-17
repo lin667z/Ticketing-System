@@ -1,17 +1,13 @@
 package org.ticketing_system.biz.payservice.handler;
 
 import cn.hutool.core.text.StrBuilder;
-import cn.hutool.core.util.StrUtil;
 import com.alibaba.fastjson2.JSONObject;
 import com.alipay.api.AlipayApiException;
 import com.alipay.api.AlipayClient;
-import com.alipay.api.AlipayConfig;
-import com.alipay.api.DefaultAlipayClient;
 import com.alipay.api.domain.AlipayTradePagePayModel;
 import com.alipay.api.request.AlipayTradePagePayRequest;
 import com.alipay.api.response.AlipayTradePagePayResponse;
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.ticketing_system.biz.payservice.common.enums.PayChannelEnum;
 import org.ticketing_system.biz.payservice.common.enums.PayTradeTypeEnum;
@@ -20,7 +16,6 @@ import org.ticketing_system.biz.payservice.dto.base.AliPayRequest;
 import org.ticketing_system.biz.payservice.dto.base.PayRequest;
 import org.ticketing_system.biz.payservice.dto.base.PayResponse;
 import org.ticketing_system.biz.payservice.handler.base.AbstractPayHandler;
-import org.ticketing_system.framework.starter.common.toolkit.BeanUtil;
 import org.ticketing_system.framework.starter.convention.exception.ServiceException;
 import org.ticketing_system.framework.starter.designpattern.strategy.AbstractExecuteStrategy;
 import org.springframework.retry.annotation.Backoff;
@@ -37,14 +32,12 @@ import org.springframework.stereotype.Service;
 public class AliPayNativeHandler extends AbstractPayHandler implements AbstractExecuteStrategy<PayRequest, PayResponse> {
 
     private final AliPayProperties aliPayProperties;
+    private final AlipayClient alipayClient;
 
-    @SneakyThrows(value = AlipayApiException.class)
     @Override
     @Retryable(value = ServiceException.class, maxAttempts = 3, backoff = @Backoff(delay = 1000, multiplier = 1.5))
     public PayResponse pay(PayRequest payRequest) {
         AliPayRequest aliPayRequest = payRequest.getAliPayRequest();
-        AlipayConfig alipayConfig = BeanUtil.convert(aliPayProperties, AlipayConfig.class);
-        AlipayClient alipayClient = new DefaultAlipayClient(alipayConfig);
         AlipayTradePagePayModel model = new AlipayTradePagePayModel();
         model.setOutTradeNo(aliPayRequest.getOrderSn());
         model.setTotalAmount(aliPayRequest.getTotalAmount().toString());
@@ -64,7 +57,7 @@ public class AliPayNativeHandler extends AbstractPayHandler implements AbstractE
             if (!response.isSuccess()) {
                 throw new ServiceException("调用支付宝发起支付异常");
             }
-            return new PayResponse(StrUtil.replace(StrUtil.replace(response.getBody(), "\"", "'"), "\n", ""));
+            return new PayResponse(response.getBody());
         } catch (AlipayApiException ex) {
             throw new ServiceException("调用支付宝支付异常");
         }

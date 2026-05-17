@@ -62,7 +62,7 @@ public class RefundServiceImpl implements RefundService {
             log.error("支付单不存在，orderSn：{}", requestParam.getOrderSn());
             throw new ServiceException("支付单不存在");
         }
-        payDO.setPayAmount(payDO.getTotalAmount() - requestParam.getRefundAmount());
+        payDO.setPayAmount(payDO.getPayAmount() - requestParam.getRefundAmount());
         //创建退款单
         RefundCreateDTO refundCreateDTO = BeanUtil.convert(requestParam, RefundCreateDTO.class);
         refundCreateDTO.setPaySn(payDO.getPaySn());

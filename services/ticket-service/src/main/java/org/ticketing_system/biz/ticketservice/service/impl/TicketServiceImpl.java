@@ -84,6 +84,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -236,7 +237,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
                 .map(each -> String.format(cacheRedisPrefix + TRAIN_STATION_PRICE, each.getTrainId(), each.getDeparture(), each.getArrival()))
                 .toList();
         List<Object> trainStationPriceObjs = stringRedisTemplate.executePipelined((RedisCallback<String>) connection -> {
-            trainStationPriceKeys.forEach(each -> connection.stringCommands().get(each.getBytes()));
+            trainStationPriceKeys.forEach(each -> connection.stringCommands().get(each.getBytes(StandardCharsets.UTF_8)));
             return null;
         });
         
@@ -276,7 +277,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
         
         List<Object> trainStationRemainingObjs = stringRedisTemplate.executePipelined((RedisCallback<String>) connection -> {
             for (int i = 0; i < trainStationRemainingKeyList.size(); i++) {
-                connection.hashCommands().hGet(trainStationRemainingKeyList.get(i).getBytes(), trainStationPriceDOList.get(i).getSeatType().toString().getBytes());
+                connection.hashCommands().hGet(trainStationRemainingKeyList.get(i).getBytes(StandardCharsets.UTF_8), trainStationPriceDOList.get(i).getSeatType().toString().getBytes(StandardCharsets.UTF_8));
             }
             return null;
         });
@@ -547,23 +548,32 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
         if (CollectionUtil.isEmpty(passengerDetails)) {
             throw new ServiceException("车票子订单不存在");
         }
+        List<TicketOrderPassengerDetailRespDTO> validPassengerDetails = passengerDetails.stream()
+                .filter(item -> item.getStatus() != null && item.getStatus() != 40)
+                .collect(Collectors.toList());
+        if (CollectionUtil.isEmpty(validPassengerDetails)) {
+            throw new ServiceException("没有可退款的车票");
+        }
         RefundReqDTO refundReqDTO = new RefundReqDTO();
         if (RefundTypeEnum.PARTIAL_REFUND.getType().equals(requestParam.getType())) {
             TicketOrderItemQueryReqDTO ticketOrderItemQueryReqDTO = new TicketOrderItemQueryReqDTO();
             ticketOrderItemQueryReqDTO.setOrderSn(requestParam.getOrderSn());
             ticketOrderItemQueryReqDTO.setOrderItemRecordIds(requestParam.getSubOrderRecordIdReqList());
             Result<List<TicketOrderPassengerDetailRespDTO>> queryTicketItemOrderById = ticketOrderRemoteService.queryTicketItemOrderById(ticketOrderItemQueryReqDTO);
-            List<TicketOrderPassengerDetailRespDTO> partialRefundPassengerDetails = passengerDetails.stream()
+            List<TicketOrderPassengerDetailRespDTO> partialRefundPassengerDetails = validPassengerDetails.stream()
                     .filter(item -> queryTicketItemOrderById.getData().contains(item))
                     .collect(Collectors.toList());
+            if (CollectionUtil.isEmpty(partialRefundPassengerDetails)) {
+                throw new ServiceException("选择的退款车票已退款或不存在");
+            }
             refundReqDTO.setRefundTypeEnum(RefundTypeEnum.PARTIAL_REFUND);
             refundReqDTO.setRefundDetailReqDTOList(partialRefundPassengerDetails);
         } else if (RefundTypeEnum.FULL_REFUND.getType().equals(requestParam.getType())) {
             refundReqDTO.setRefundTypeEnum(RefundTypeEnum.FULL_REFUND);
-            refundReqDTO.setRefundDetailReqDTOList(passengerDetails);
+            refundReqDTO.setRefundDetailReqDTOList(validPassengerDetails);
         }
-        if (CollectionUtil.isNotEmpty(passengerDetails)) {
-            Integer partialRefundAmount = passengerDetails.stream()
+        if (CollectionUtil.isNotEmpty(refundReqDTO.getRefundDetailReqDTOList())) {
+            Integer partialRefundAmount = refundReqDTO.getRefundDetailReqDTOList().stream()
                     .mapToInt(TicketOrderPassengerDetailRespDTO::getAmount)
                     .sum();
             refundReqDTO.setRefundAmount(partialRefundAmount);

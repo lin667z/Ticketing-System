@@ -23,7 +23,7 @@ public class RedisKeySerializer implements InitializingBean, RedisSerializer<Str
     @Override
     public byte[] serialize(String key) throws SerializationException {
         String builderKey = keyPrefix + key;
-        return builderKey.getBytes();
+        return builderKey.getBytes(charset);
     }
 
     @Override

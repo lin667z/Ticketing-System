@@ -175,7 +175,8 @@
         :options="
           state.dataSource
             ?.find((item) => item.orderSn === state.currentOrder)
-            .passengerDetails.map((item) => ({
+            .passengerDetails.filter((item) => item.status !== 40)
+            .map((item) => ({
               label: item.realName,
               value: item.id
             }))
@@ -495,9 +496,13 @@ const handleRefund = () => {
     type: 0,
     subOrderRecordIdReqList: state.refundOrder
   }).then((res) => {
-    state.visible = false
-    message.success('退款成功')
-    getTicketList(state.current, state.size, state.activeKey)
+    if (res.success) {
+      state.visible = false
+      message.success('退款成功')
+      getTicketList(state.current, state.size, state.activeKey)
+    } else {
+      message.error(res.message || '退款失败')
+    }
   })
 }
 </script>
