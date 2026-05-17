@@ -1,17 +1,16 @@
 <template>
-  <div>
+  <div class="train-card-info">
+    <div class="route-title">
+      <span class="station">{{ departure }}</span>
+      <span class="arrow">→</span>
+      <span class="station">{{ arrival }}</span>
+    </div>
+    <div class="train-details">
+      <span class="train-number">{{ props['trainNumber'] }}</span>
+      <span class="departure-time">{{ props['departureTime'] }}</span>
+      <span class="date-info">{{ props['ridingDate'] }} 开</span>
+    </div>
     <div class="order-date">订票日期：{{ formattedOrderTime }}</div>
-    <div>
-      <span class="border">{{ departure }}</span>
-      <span class="border">{{ '-->' }}</span>
-      <span class="border">{{ arrival }}</span
-      ><span class="border">{{ props['trainNumber'] }}</span>
-    </div>
-    <div>
-      <span class="margin">{{ props['ridingDate'] }}</span>
-      <span class="margin">{{ props['departureTime'] }}</span>
-      <span class="margin">开</span>
-    </div>
   </div>
 </template>
 
@@ -35,15 +34,51 @@ const formattedOrderTime = computed(() => {
 </script>
 
 <style lang="scss" scoped>
+.train-card-info {
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.route-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  .station {
+    font-size: 18px;
+    font-weight: bold;
+    color: #111827;
+  }
+  .arrow {
+    font-size: 16px;
+    color: #6b7280;
+    font-weight: bold;
+  }
+}
+
+.train-details {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  .train-number {
+    font-size: 20px;
+    font-weight: 900;
+    color: #1677ff;
+  }
+  .departure-time {
+    font-size: 20px;
+    font-weight: 900;
+    color: #111827;
+  }
+  .date-info {
+    font-size: 14px;
+    color: #4b5563;
+  }
+}
+
 .order-date {
   color: #8f9598;
-  padding: 6px 0;
-}
-.border {
-  font-weight: bolder;
-  padding: 0 4px;
-}
-.margin {
-  padding: 0 4px;
+  font-size: 13px;
 }
 </style>

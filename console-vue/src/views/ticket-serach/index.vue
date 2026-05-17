@@ -5,7 +5,7 @@ import {
   CalendarOutlined,
   ClockCircleOutlined,
   SearchOutlined,
-  SwapRightOutlined,
+  SwapOutlined,
   UserOutlined
 } from '@ant-design/icons-vue'
 import dayjs from 'dayjs'
@@ -279,6 +279,7 @@ const exchangeCity = () => {
   const [fromStation, toStation] = [toRaw(headSearch.fromStation), toRaw(headSearch.toStation)]
   headSearch.fromStation = toStation
   headSearch.toStation = fromStation
+  handSubmit()
 }
 
 const handleTrainClick = (trainId) => {
@@ -337,13 +338,13 @@ const handleBook = (record) => {
             />
           </div>
           <div class="swap-icon-wrap" @click="exchangeCity">
-            <SwapRightOutlined class="swap-icon" />
+            <SwapOutlined class="swap-icon" />
           </div>
-          <div class="station-block">
+          <div class="station-block align-right">
             <span class="label">目的地</span>
             <Select
               v-model:value="headSearch.toStation"
-              class="station-select"
+              class="station-select align-right"
               :show-arrow="false"
               :show-search="true"
               :bordered="false"
@@ -660,10 +661,12 @@ const handleBook = (record) => {
 .trip-type-group {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 10px;
   padding-right: 16px;
   border-right: 1px solid #d8e4f0;
   flex-shrink: 0;
+  height: 62px;
 }
 
 .radio-option,
@@ -723,12 +726,15 @@ const handleBook = (record) => {
 .station-section {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   background: #f8f9fb;
   border-radius: 8px;
   padding: 8px 16px;
   min-height: 62px;
   border: 1px solid transparent;
   transition: border-color 0.18s ease, background-color 0.18s ease;
+  position: relative;
+  width: 320px;
   &:hover {
     background: #f6f7f9;
     border-color: #eef0f4;
@@ -741,28 +747,53 @@ const handleBook = (record) => {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  min-height: 42px;
+  min-height: 46px;
   .label {
-    color: #999;
+    color: #88909b;
     font-size: 13px;
     line-height: 18px;
-    margin-bottom: 3px;
+    margin-bottom: 2px;
   }
+}
+
+.station-block.align-right {
+  align-items: flex-end;
+  width: 132px;
+  margin-left: auto;
+  text-align: right;
 }
 
 .station-select {
   width: 110px;
   :deep(.ant-select-selector) {
-    height: 26px !important;
+    height: 30px !important;
     padding: 0 !important;
     background: transparent !important;
     display: flex;
     align-items: center;
     .ant-select-selection-item {
       color: #333;
-      font-size: 24px !important;
-      font-weight: 650;
-      line-height: 26px !important;
+      font-size: 20px !important;
+      font-weight: 600;
+      line-height: 30px !important;
+    }
+    .ant-select-selection-search-input {
+      font-size: 20px !important;
+      caret-color: transparent !important;
+    }
+  }
+  &.align-right {
+    width: 132px;
+    :deep(.ant-select-selector) {
+      justify-content: flex-end;
+      .ant-select-selection-item {
+        display: block;
+        width: 100%;
+        text-align: right;
+      }
+      .ant-select-selection-search-input {
+        text-align: right;
+      }
     }
   }
 }
@@ -775,19 +806,27 @@ const handleBook = (record) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 12px;
+  margin: 0;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  border: 1px solid #eef0f4;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+  flex-shrink: 0;
   .swap-icon {
     color: #999;
-    font-size: 15px;
+    font-size: 16px;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
   &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+    border-color: #d1d5db;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     .swap-icon {
-      color: #333;
+      color: #111;
+    }
+  }
+  &:active {
+    .swap-icon {
+      transform: rotate(180deg);
     }
   }
 }
@@ -807,18 +846,23 @@ const handleBook = (record) => {
     border-color: #eef0f4;
   }
   .section-icon {
-    color: #999;
-    font-size: 18px;
-    margin-right: 10px;
+    color: #a0a7b5;
+    font-size: 20px;
+    margin-right: 12px;
   }
 }
 
 .return-section.disabled {
   opacity: 0.5;
+  cursor: not-allowed;
+  background: #f0f2f5;
+  * {
+    cursor: not-allowed !important;
+  }
 }
 
 .date-picker {
-  width: 134px;
+  width: 140px;
   padding: 0 !important;
   background: transparent !important;
   :deep(.ant-picker-input) {
@@ -827,25 +871,26 @@ const handleBook = (record) => {
   :deep(input) {
     color: #333;
     cursor: pointer;
-    font-size: 18px !important;
-    font-weight: 650;
-    line-height: 26px;
+    font-size: 20px !important;
+    font-weight: 600;
+    line-height: 30px;
+    caret-color: transparent !important;
   }
 }
 
 .passenger-select {
-  width: 74px;
+  width: 84px;
   :deep(.ant-select-selector) {
-    height: 26px !important;
+    height: 30px !important;
     padding: 0 !important;
     background: transparent !important;
     display: flex;
     align-items: center;
     .ant-select-selection-item {
       color: #333;
-      font-size: 18px !important;
-      font-weight: 650;
-      line-height: 26px !important;
+      font-size: 20px !important;
+      font-weight: 600;
+      line-height: 30px !important;
     }
   }
 }

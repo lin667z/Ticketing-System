@@ -1,5 +1,5 @@
 <template>
-  <Space>
+  <Space class="edit-actions" direction="vertical" size="small">
     <Button @click="() => props.cancel(orderSn)" type="link">取消订单</Button>
     <Button type="link" @click="() => props.pay(orderSn)">去支付</Button>
   </Space>
@@ -16,6 +16,13 @@ const props = defineProps({
 </script>
 
 <style lang="scss" scoped>
-.class {
+.edit-actions {
+  align-items: flex-start;
+}
+
+.edit-actions :deep(.ant-btn-link) {
+  height: auto;
+  padding: 0;
+  line-height: 1.5;
 }
 </style>

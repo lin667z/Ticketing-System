@@ -7,7 +7,7 @@ if (Cookie.get('token')) {
 
 const initAxios = Axios.create({
   timeout: 1800000 //数据响应过期时间
-  // baseURL: 'http://ticketing_system-rd.magestack.cn:9000'
+  // baseURL: 'http://-rd.magestack.cn:9000'
   // headers: ['Authorization', Cookie.get('token') ?? null]
 })
 

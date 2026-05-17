@@ -6,7 +6,7 @@
       <TabPane :key="2" tab="历史订单"></TabPane>
     </Tabs>
   </div>
-  <Card :bordered="false" :style="{ padding: '0 10px' }">
+  <Card class="order-list-card" :bordered="false" :style="{ padding: '0 10px' }">
     <CheckboxGroup
       :style="{ width: '100%' }"
       v-model:value="state.checkList"
@@ -17,52 +17,31 @@
       "
     >
       <Table
+        class="order-table"
         :columns="state.columns"
         :data-source="state.dataSource"
         :pagination="false"
         :loading="state.loading"
         :bordered="true"
+        row-key="id"
+        table-layout="fixed"
+        :scroll="{ x: 1280 }"
       >
         <template #id="{ text, record }">
-          <div
-            :style="{
-              display: 'flex',
-              alignItems: 'center'
-            }"
-          >
-            <!-- <div
-              v-if="state.activeKey !== 0"
-              :style="{ marginRight: '20px', width: '30px' }"
-            >
-              <Checkbox
-                :value="text"
-                @change="
-                  (e) => {
-                    if (e.target.value) {
-                      state.refundOrder = [
-                        ...state.refundOrder,
-                        { orderSN: record.orderSN, refundList }
-                      ]
-                    } else {
-                      state.refundOrder = state.refundOrder.filter(
-                        (item) => item !== text
-                      )
-                    }
-                  }
-                "
-              ></Checkbox>
-            </div> -->
-            <div>
-              <span :style="{ marginRight: '5px', width: '60%' }">{{
-                record?.realName
-              }}</span>
-              <a
+          <div :style="{ display: 'flex', flexDirection: 'column', gap: '8px' }">
+            <div :style="{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }">
+              <span :style="{ fontWeight: 500 }">{{ record?.realName }}</span>
+              <Button
                 v-if="state.activeKey !== 0"
-                :style="{ textDecoration: 'underline' }"
-                >打印信息单</a
+                type="link"
+                size="small"
+                :style="{ padding: '0', fontSize: '13px' }"
               >
+                <template #icon><PrinterOutlined /></template>
+                打印信息单
+              </Button>
             </div>
-            <div>
+            <div :style="{ color: '#6b7280', fontSize: '13px' }">
               {{
                 ID_CARD_TYPE.find((item) => item.value === record?.idType)
                   ?.label
@@ -152,12 +131,21 @@
     </div>
     <div class="tips-txt">
       <div class="title">温馨提示：</div>
-      <p>1. 席位已锁定，请在指定时间内完成网上支付。</p>
-      <p>2. 逾期未支付，系统将取消本次交易。</p>
-      <p>3. 在完成支付或取消订单之前，您将无法购买其他车票</p>
+      <template v-if="state.activeKey === 0">
+        <p>1. 席位已锁定，请在指定时间内完成网上支付。</p>
+        <p>2. 逾期未支付，系统将取消本次交易。</p>
+        <p>3. 在完成支付或取消订单之前，您将无法购买其他车票</p>
+      </template>
+      <template v-else-if="state.activeKey === 1">
+        <p>1. 支付成功！请凭购票时所使用的有效身份证件原件进站乘车。</p>
+        <p>2. 如需改签或退票，请在发车前通过订单详情页办理。</p>
+      </template>
+      <template v-else>
+        <p>1. 历史订单仅供查询，无法办理改签或退票。</p>
+        <p>2. 如需报销，请在乘车之日起规定时间内办理报销凭证。</p>
+      </template>
       <p>
-        4.
-        未尽事宜详见《国铁集团铁路旅客运输规程》《广深港高铁铁路跨境旅客运输组织规则》《中老铁路跨境旅客联运组织规则》等有关规定和车站公告。
+        {{ state.activeKey === 0 ? '4' : '3' }}. 未尽事宜详见《国铁集团铁路旅客运输规程》《广深港高铁铁路跨境旅客运输组织规则》《中老铁路跨境旅客联运组织规则》等有关规定和车站公告。
       </p>
     </div>
   </Card>
@@ -283,7 +271,7 @@ import {
   Space,
   Button
 } from 'ant-design-vue'
-import { QuestionCircleFilled } from '@ant-design/icons-vue'
+import { QuestionCircleFilled, PrinterOutlined } from '@ant-design/icons-vue'
 
 import CarInfo from './components/show-card-info'
 import EditContent from './components/edit-content'
@@ -321,6 +309,7 @@ const columns = [
     title: '车次信息',
     dataIndex: 'arrival',
     key: 'arrival',
+    width: 360,
     slots: { customRender: 'info' },
     customRender: ({ text, record }) => {
       return {
@@ -342,24 +331,44 @@ const columns = [
     title: '旅客信息',
     dataIndex: 'id',
     key: 'id',
+    width: 360,
     slots: { customRender: 'id' }
   },
   {
     title: '席位信息',
     dataIndex: 'seatType',
     key: 'seatType',
+    width: 150,
     slots: { customRender: 'seatType' }
   },
   {
     title: '票价',
     dataIndex: 'amount',
     key: 'amount',
+    width: 120,
     slots: { customRender: 'amount' }
+  },
+  {
+    title: '总金额',
+    dataIndex: 'totalAmount',
+    key: 'totalAmount',
+    width: 120,
+    slots: { customRender: 'totalAmount' },
+    customRender: ({ text, record }) => {
+      const total = record?.passengerDetails?.reduce((sum, item) => sum + item.amount, 0) / 100 || 0
+      return {
+        children: h('div', { style: 'color: #f59e0b; font-weight: 500;' }, `￥${total}`),
+        props: {
+          rowSpan: record?.rowSpan
+        }
+      }
+    }
   },
   {
     title: '车票状态',
     dataIndex: 'status',
     key: 'status',
+    width: 120,
     slots: { customRender: 'status' },
     customRender: ({ text, record }) => {
       return {
@@ -368,11 +377,10 @@ const columns = [
           refundClick: () => {
             state.visible = true
             state.currentOrder = record?.orderSn
+            state.refundOrder = [record?.id]
           }
         }),
-        props: {
-          rowSpan: record?.rowSpan
-        }
+        props: {}
       }
     }
   }
@@ -388,6 +396,7 @@ watch(
           title: '操作',
           dataIndex: 'edit',
           key: 'edit',
+          width: 150,
           slots: { customRender: 'edit' },
           customRender: ({ text, record }) => {
             return {
@@ -539,6 +548,86 @@ const handleRefund = () => {
   box-sizing: border-box;
   background-image: none;
 }
+
+.order-list-card {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.order-list-card :deep(.ant-card-body) {
+  padding: 14px 12px 16px;
+}
+
+.order-table :deep(.ant-table) {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.order-table :deep(.ant-table-thead > tr > th) {
+  height: 54px;
+  padding: 14px 20px !important;
+  color: #111827;
+  font-size: 15px;
+  font-weight: 700;
+  background-color: #f6f7f9 !important;
+}
+
+.order-table :deep(.ant-table-tbody > tr > td) {
+  padding: 18px 20px !important;
+  color: #111827;
+  font-size: 15px;
+  line-height: 1.55;
+  vertical-align: middle;
+}
+
+.order-table :deep(.ant-table-tbody > tr > td:nth-child(2) > div) {
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+
+.order-table :deep(.ant-table-tbody > tr > td:nth-child(3) > div + div),
+.order-table :deep(.ant-table-tbody > tr > td:nth-child(4) > div + div) {
+  margin-top: 4px;
+}
+
+.order-table :deep(.ant-table-tbody > tr > td:nth-child(4) > div:last-child) {
+  color: #f59e0b !important;
+  font-weight: 500;
+}
+
+.order-table :deep(.ant-table-tbody > tr:hover > td) {
+  background: #fbfcff !important;
+}
+
+.order-table :deep(.ant-btn-link),
+.order-table :deep(a) {
+  padding: 0;
+  color: #1677ff;
+  font-size: 15px;
+}
+
+.order-table :deep(.ant-btn-link:hover),
+.order-table :deep(a:hover) {
+  color: #0958d9;
+}
+
+.order-table :deep(.ant-table-placeholder .ant-table-cell) {
+  padding: 44px 20px !important;
+}
+
+:deep(.ant-pagination) {
+  margin-right: 4px;
+}
+
+:deep(.ant-pagination-total-text) {
+  color: #6b7280;
+}
+
+:deep(.ant-modal-content) {
+  overflow: hidden;
+}
+
 :deep(.custom-modal) {
   .ant-alert-warning {
     background-color: #fff !important;

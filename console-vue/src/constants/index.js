@@ -133,62 +133,62 @@ const TRAIN_BRAND_LIST = [
 
 const BANK_LIST = [
   {
-    img: 'https://epay.ticketing_system.cn/pay/pages/web/images/bank_zfb.gif',
+    img: 'https://epay.12306.cn/pay/pages/web/images/bank_zfb.gif',
     name: '支付宝',
     value: 0
   },
   {
-    img: 'https://epay.ticketing_system.cn/pay/pages/web/images/bank_wx.gif',
+    img: 'https://epay.12306.cn/pay/pages/web/images/bank_wx.gif',
     name: '微信支付',
     value: 1
   },
   {
-    img: 'https://epay.ticketing_system.cn/pay/pages/web/images/bank_gsyh2.gif',
+    img: 'https://epay.12306.cn/pay/pages/web/images/bank_gsyh2.gif',
     name: '中国工商银行',
     value: 10
   },
   {
-    img: 'https://epay.ticketing_system.cn/pay/pages/web/images/bank_nyyh2.gif',
+    img: 'https://epay.12306.cn/pay/pages/web/images/bank_nyyh2.gif',
     name: '中国农业银行',
     value: 9
   },
   {
-    img: 'https://epay.ticketing_system.cn/pay/pages/web/images/bank_zgyh2.gif',
+    img: 'https://epay.12306.cn/pay/pages/web/images/bank_zgyh2.gif',
     name: '中国银行',
     value: 8
   },
   {
-    img: 'https://epay.ticketing_system.cn/pay/pages/web/images/bank_jsyh2.gif',
+    img: 'https://epay.12306.cn/pay/pages/web/images/bank_jsyh2.gif',
     name: '中国建设银行',
     value: 7
   },
   {
-    img: 'https://epay.ticketing_system.cn/pay/pages/web/images/bank_zsyh2.gif',
+    img: 'https://epay.12306.cn/pay/pages/web/images/bank_zsyh2.gif',
     name: '招商银行',
     value: 6
   },
   {
-    img: 'https://epay.ticketing_system.cn/pay/pages/web/images/bank_ycyh.gif',
+    img: 'https://epay.12306.cn/pay/pages/web/images/bank_ycyh.gif',
     name: '中国邮政储蓄银行',
     value: 5
   },
   {
-    img: 'https://epay.ticketing_system.cn/pay/pages/web/images/bank_zgyl.gif',
+    img: 'https://epay.12306.cn/pay/pages/web/images/bank_zgyl.gif',
     name: '中国银联',
     value: 4
   },
   {
-    img: 'https://epay.ticketing_system.cn/pay/pages/web/images/bank_ztytk.gif',
+    img: 'https://epay.12306.cn/pay/pages/web/images/bank_ztytk.gif',
     name: '中铁银通卡',
     value: 3
   },
   {
-    img: 'https://epay.ticketing_system.cn/pay/pages/web/images/bank_wk.gif',
+    img: 'https://epay.12306.cn/pay/pages/web/images/bank_wk.gif',
     name: '银行卡',
     value: 12
   },
   {
-    img: 'https://epay.ticketing_system.cn/pay/pages/web/images/bank_jtyh.png',
+    img: 'https://epay.12306.cn/pay/pages/web/images/bank_jtyh.png',
     name: '交通银行',
     value: 13
   }

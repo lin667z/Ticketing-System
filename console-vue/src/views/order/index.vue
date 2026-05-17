@@ -390,7 +390,7 @@ const getOrderStatus = () => {
     display: inline-block;
     width: 42px;
     height: 42px;
-    background: url(https://kyfw.ticketing_system.cn/otn/resources/images/bg02.png)
+    background: url(https://kyfw.12306.cn/otn/resources/images/bg02.png)
       repeat-x;
     background-position: 0 -250px;
     margin-right: 20px;
@@ -437,7 +437,7 @@ const getOrderStatus = () => {
       float: left;
       width: 16px;
       height: 16px;
-      background-image: url(https://kyfw.ticketing_system.cn/otn/resources/images/icon-cyx.png);
+      background-image: url(https://kyfw.12306.cn/otn/resources/images/icon-cyx.png);
     }
   }
 }

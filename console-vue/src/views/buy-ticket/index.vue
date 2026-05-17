@@ -132,7 +132,7 @@
         </Table>
         <img
           :style="{ width: '100%' }"
-          src="https://kyfw.ticketing_system.cn/otn/resources/images/ins_ad7.png"
+          src="https://kyfw.12306.cn/otn/resources/images/ins_ad7.png"
           alt=""
         />
       </Card>
@@ -211,13 +211,10 @@
         </p>
       </div>
     </Space>
-    <Modal
-      :visible="state.open"
+    <div v-if="state.open" class="check-info-modal">
+    <Card
+      class="check-info-card"
       title="请核对以下信息"
-      wrap-class-name="check-info-wrapper"
-      width="40%"
-      @cancel="state.open = false"
-      :footer="null"
     >
       <Space direction="vertical" :style="{ width: '100%' }">
         <div>
@@ -350,6 +347,7 @@
         >
           <Button @click="state.open = false">返回修改</Button>
           <Button
+            class="confirm-btn"
             :loading="state.loading"
             :style="{
               backgroundColor: '#ff8001',
@@ -361,7 +359,8 @@
           >
         </Space>
       </Space>
-    </Modal>
+    </Card>
+    </div>
   </div>
 </template>
 
@@ -377,7 +376,6 @@ import {
   SelectOption,
   Input,
   Button,
-  Modal,
   message
 } from 'ant-design-vue'
 import { useRoute } from 'vue-router'
@@ -414,6 +412,10 @@ const state = reactive({
   loading: false
 })
 const currPassenger = ref([])
+
+const openCheckModal = () => {
+  state.open = true
+}
 
 onMounted(() => {
   fetchTicketSearch({
@@ -594,7 +596,7 @@ const handleSubmit = () => {
   if (canNotSubmit || state.dataSource?.length === 0) {
     return message.error('请补全信息')
   }
-  state.open = true
+  openCheckModal()
 }
 
 const checkColumns = [
@@ -738,7 +740,28 @@ const handleSubmitBuyTicket = () => {
     padding: 8px;
   }
 }
-.check-info-wrapper {
+.check-info-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.check-info-card {
+  width: min(1080px, 100%);
+  max-height: calc(100vh - 48px);
+  border: 1px solid #f97316;
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.24);
+
+  :deep(.ant-card-body) {
+    max-height: calc(100vh - 120px);
+    overflow: auto;
+  }
+
   .important-text {
     font-size: 16px;
     font-weight: bolder;
@@ -772,7 +795,7 @@ const handleSubmitBuyTicket = () => {
       width: 30px;
       height: 28px;
       line-height: 25px;
-      background: url(https://kyfw.ticketing_system.cn/otn/resources/images/bg017.png)
+      background: url(https://kyfw.12306.cn/otn/resources/images/bg017.png)
         no-repeat;
       color: #fff;
       margin: 0 5px;
