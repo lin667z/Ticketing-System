@@ -1,0 +1,72 @@
+server:
+  port: 9004
+
+spring:
+  profiles:
+    active: local
+  application:
+    name: index12306-pay${unique-name:}-service
+  datasource:
+    driver-class-name: org.apache.shardingsphere.driver.ShardingSphereDriver
+    url: jdbc:shardingsphere:classpath:shardingsphere-config.yaml
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${nacos.server-addr}
+      password: ${nacos.password}
+      username: ${nacos.username}
+    sentinel:
+      transport:
+        dashboard: ${sentinel.dashboard}
+        port: 8719
+  data:
+    redis:
+      host: ${redis.host}
+      port: 6379
+      password: ${redis.password}
+
+rocketmq:
+  name-server: ${rocketmq.name-server}
+  producer:
+    group: index12306_pay-service_common-message-execute_pg
+    send-message-timeout: 2000
+    retry-times-when-send-failed: 1
+    retry-times-when-send-async-failed: 1
+
+pay:
+  alipay:
+    alipay-public-key: ${alipay.public-key}
+    app-id: ${alipay.app-id}
+    charset: UTF8
+    format: json
+    notify-url: ${alipay.notify-url}
+    private-key: ${alipay.private-key}
+    server-url: ${alipay.server-url}
+    sign-type: RSA2
+
+mybatis-plus:
+  global-config:
+    db-config:
+      logic-delete-field: delFlag
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  # mapper-locations: classpath:mapper/*.xml
+
+framework:
+  fastjson:
+    safe-mode: true
+  cache:
+    redis:
+      value-timeout: 16
+      value-time-unit: days
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+  metrics:
+    tags:
+      application: ${spring.application.name}
