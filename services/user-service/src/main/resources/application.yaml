@@ -5,10 +5,10 @@ spring:
   profiles:
     active: local
   application:
-    name: index12306-user${unique-name:}-service
+    name: ticketing-system-user${unique-name:}-service
   datasource:
     driver-class-name: org.apache.shardingsphere.driver.ShardingSphereDriver
-    url: jdbc:shardingsphere:classpath:shardingsphere-config.yaml
+    url: jdbc:shardingsphere:${shardingsphere.config-location:classpath:shardingsphere-config.yaml}
   data:
     redis:
       host: ${redis.host}

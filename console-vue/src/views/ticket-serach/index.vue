@@ -119,6 +119,29 @@ const seatFilterOptions = computed(() => {
     .filter(Boolean)
 })
 
+const seatColumnTypes = computed(() => {
+  const preferredOrder = [0, 12, 1, 2, 4, 3, 9, 8, 6, 7, 5, 10, 14]
+  const availableTypes = new Set()
+  state.trainList.forEach((train) => {
+    train.seatClassList?.forEach((seat) => {
+      if (seat.price !== undefined && seat.price !== null) {
+        availableTypes.add(Number(seat.type))
+      }
+    })
+  })
+
+  const orderedTypes = preferredOrder.filter((type) => availableTypes.has(type))
+  availableTypes.forEach((type) => {
+    if (!orderedTypes.includes(type)) orderedTypes.push(type)
+  })
+
+  return orderedTypes.slice(0, 9)
+})
+
+const tableGridTemplate = computed(() => {
+  return `118px 196px 110px repeat(${Math.max(seatColumnTypes.value.length, 1)}, 104px) 108px`
+})
+
 const selectedFromStationName = computed(() => {
   return stationOptions.value.find((item) => item.value === headSearch.fromStation)?.label || headSearch.fromStation
 })
@@ -149,6 +172,43 @@ const normalizeTicketDate = (date) => {
 const getAvailableSeats = (seatClassList) => {
   if (!seatClassList) return []
   return seatClassList.filter((item) => item.price !== undefined && item.price !== null)
+}
+
+const getSeatByType = (train, type) => {
+  return train.seatClassList?.find((seat) => Number(seat.type) === Number(type))
+}
+
+const getSeatStatusText = (seat) => {
+  if (!seat) return '--'
+  if (seat.quantity > 0) return seat.quantity > 20 ? '有' : `余${seat.quantity}`
+  return '候补'
+}
+
+const getSeatDisplayText = (seat) => {
+  if (!seat) return '--'
+  if (seat.quantity > 0) return String(seat.quantity)
+  return '候补'
+}
+
+const trainTagMap = {
+  0: { label: '复', className: 'revival' },
+  1: { label: '智', className: 'smart' },
+  2: { label: '静', className: 'quiet' },
+  3: { label: '铺', className: 'berth' }
+}
+
+const getTrainTagItems = (train) => {
+  const source = train.trainTags ?? train.trainTag ?? []
+  const tags = Array.isArray(source) ? source : String(source).split(/[,，\s]+/)
+  return tags.map((tag) => trainTagMap[Number(tag)]).filter(Boolean)
+}
+
+const getStationTag = (flag, terminalLabel) => {
+  return flag ? terminalLabel : '过'
+}
+
+const getStationTagClass = (flag, terminalClass) => {
+  return flag ? terminalClass : 'pass'
 }
 
 const getSeatName = (type) => {
@@ -553,7 +613,100 @@ const handleBook = (record) => {
       </div>
 
       <div class="train-list-container">
-        <div v-for="train in state.trainList" :key="train.trainId" class="train-card">
+        <div class="train-table-shell" v-if="state.trainList?.length">
+          <div class="train-table-scroll">
+            <div class="train-table-header" :style="{ gridTemplateColumns: tableGridTemplate }">
+              <div>车次</div>
+              <div>出发 / 到达</div>
+              <div>历时</div>
+              <div v-for="type in seatColumnTypes" :key="type">{{ getSeatName(type) }}</div>
+              <div>备注</div>
+            </div>
+
+            <div
+              v-for="train in state.trainList"
+              :key="`row-${train.trainId}`"
+              class="train-table-row"
+              :style="{ gridTemplateColumns: tableGridTemplate }"
+            >
+              <div class="train-number-cell">
+                <Tooltip :get-popup-container="(node) => node.parentNode" placement="bottom" trigger="click">
+                  <button class="train-number-btn" @click="handleTrainClick(train.trainId)">
+                    {{ train.trainNumber }}
+                  </button>
+                  <template #title>
+                    <Table
+                      :columns="cardInfoColumns"
+                      :data-source="state.trainStationList"
+                      :pagination="false"
+                      :loading="state.loading"
+                    />
+                  </template>
+                </Tooltip>
+                <div class="train-tag-line">
+                  <span
+                    v-for="tag in getTrainTagItems(train)"
+                    :key="tag.label"
+                    class="train-badge"
+                    :class="tag.className"
+                  >
+                    {{ tag.label }}
+                  </span>
+                </div>
+                <div class="legacy-station-tags">
+                  <span class="tag start" v-if="train.departureFlag">始</span>
+                  <span class="tag pass" v-else>过</span>
+                  <span class="tag end" v-if="train.arrivalFlag">终</span>
+                  <span class="tag pass" v-else>过</span>
+                </div>
+              </div>
+
+              <div class="station-time-cell">
+                <div class="station-time-line">
+                  <span class="station-name">
+                    <span class="station-tag" :class="getStationTagClass(train.departureFlag, 'start')">
+                      {{ getStationTag(train.departureFlag, '始') }}
+                    </span>
+                    {{ train.departure }}
+                  </span>
+                  <strong>{{ train.departureTime }}</strong>
+                </div>
+                <div class="station-time-line muted">
+                  <span class="station-name">
+                    <span class="station-tag" :class="getStationTagClass(train.arrivalFlag, 'end')">
+                      {{ getStationTag(train.arrivalFlag, '终') }}
+                    </span>
+                    {{ train.arrival }}
+                  </span>
+                  <strong>{{ train.arrivalTime }}</strong>
+                </div>
+              </div>
+
+              <div class="duration-cell">
+                <span><ClockCircleOutlined /> {{ train.duration }}</span>
+                <small>{{ isNextDay(train.departureTime, train.arrivalTime) ? '次日到达' : '当日到达' }}</small>
+              </div>
+
+              <div v-for="type in seatColumnTypes" :key="type" class="seat-cell">
+                <span
+                  class="seat-status"
+                  :class="{
+                    'has-ticket': getSeatByType(train, type)?.quantity > 0,
+                    'wait-ticket': getSeatByType(train, type)?.quantity === 0
+                  }"
+                >
+                  {{ getSeatDisplayText(getSeatByType(train, type)) }}
+                </span>
+                <small v-if="getSeatByType(train, type)">￥{{ getSeatByType(train, type).price }}</small>
+              </div>
+
+              <div class="action-cell sticky-action-col">
+                <Button class="book-btn" @click="handleBook(train)" :disabled="!hasBookableSeat(train)">预订</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div v-if="false" v-for="train in state.trainList" :key="train.trainId" class="train-card">
           <div class="train-card-left">
             <div class="time-block">
               <div class="time">{{ train.departureTime }}</div>
@@ -1081,7 +1234,270 @@ const handleBook = (record) => {
   gap: 8px;
 }
 
+.train-table-shell {
+  background: #fff;
+  border: 1px solid #e4e8ee;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.train-table-scroll {
+  overflow-x: auto;
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #d8dde6;
+    border-radius: 3px;
+  }
+}
+
+.train-table-header,
+.train-table-row {
+  display: grid;
+  width: max-content;
+  min-width: 100%;
+  align-items: stretch;
+}
+
+.train-table-header {
+  min-height: 48px;
+  background: #111;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 650;
+  > div {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 8px;
+    border-right: 1px solid rgba(255, 255, 255, 0.14);
+    text-align: center;
+  }
+  > div:last-child {
+    position: sticky;
+    right: 0;
+    z-index: 3;
+    font-size: 0;
+    background: #111;
+    &::before {
+      content: '操作';
+      font-size: 13px;
+    }
+  }
+}
+
+.train-table-row {
+  min-height: 68px;
+  background: #fff;
+  border-bottom: 1px solid #e9edf3;
+  transition: background-color 0.16s ease;
+  &:nth-child(odd) {
+    background: #f8fafc;
+  }
+  &:hover {
+    background: #f3f6f9;
+  }
+  > div {
+    min-width: 0;
+    padding: 10px 8px;
+    border-right: 1px solid #e9edf3;
+  }
+}
+
+.sticky-action-col {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+}
+
+.train-table-row .sticky-action-col {
+  background: #fff;
+  box-shadow: -1px 0 0 #e9edf3;
+}
+
+.train-table-row:nth-child(odd) .sticky-action-col {
+  background: #f8fafc;
+}
+
+.train-table-row:hover .sticky-action-col {
+  background: #f3f6f9;
+}
+
+.train-number-cell,
+.duration-cell,
+.seat-cell,
+.action-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.train-number-cell {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.train-number-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #111;
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  border-bottom: 1px solid #111;
+}
+
+.train-tag-line {
+  display: flex;
+  min-height: 19px;
+  gap: 4px;
+}
+
+.legacy-station-tags {
+  display: none;
+}
+
+.train-badge,
+.station-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.train-badge {
+  border: 1px solid currentColor;
+  background: #fff;
+  &.revival {
+    color: #f07818;
+  }
+  &.smart {
+    color: #24934f;
+  }
+  &.quiet {
+    color: #5d8fdc;
+  }
+  &.berth {
+    color: #5d8fdc;
+  }
+}
+
+.station-tag {
+  color: #fff;
+  flex: 0 0 19px;
+  margin-right: 6px;
+  &.start {
+    background: #f07818;
+  }
+  &.end {
+    background: #24934f;
+  }
+  &.pass {
+    background: #6f94c8;
+  }
+}
+
+.station-time-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+
+.station-time-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #111;
+  strong {
+    font-size: 18px;
+    line-height: 1;
+  }
+  &.muted {
+    color: #777;
+  }
+}
+
+.station-name {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.duration-cell {
+  flex-direction: column;
+  gap: 4px;
+  color: #111;
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+    font-weight: 650;
+  }
+  small {
+    color: #777;
+    font-size: 12px;
+  }
+}
+
+.seat-cell {
+  flex-direction: column;
+  gap: 3px;
+  .seat-status {
+    color: #999;
+    font-size: 14px;
+    font-weight: 650;
+    &.has-ticket {
+      color: #24934f;
+    }
+    &.wait-ticket {
+      color: #f07818;
+    }
+  }
+  small {
+    color: #777;
+    font-size: 12px;
+  }
+}
+
+.action-cell {
+  .book-btn {
+    background: #111;
+    border: none;
+    border-radius: 5px;
+    color: #fff;
+    height: 32px;
+    min-width: 58px;
+    padding: 0 14px;
+    &:hover,
+    &:focus {
+      background: #333;
+      color: #fff;
+    }
+    &:disabled {
+      background: #d3d6dc;
+      color: #fff;
+    }
+  }
+}
+
 .train-card {
+  display: none;
   background: #fff;
   border-radius: 10px;
   padding: 14px 18px;

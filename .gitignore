@@ -36,3 +36,4 @@ build/
 .codex/
 # Ignore local application configuration files
 **/src/main/resources/application-local.yaml
+**/src/main/resources/shardingsphere-config-local.yaml

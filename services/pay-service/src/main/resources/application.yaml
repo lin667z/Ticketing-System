@@ -5,10 +5,10 @@ spring:
   profiles:
     active: local
   application:
-    name: index12306-pay${unique-name:}-service
+    name: ticketing-system-pay${unique-name:}-service
   datasource:
     driver-class-name: org.apache.shardingsphere.driver.ShardingSphereDriver
-    url: jdbc:shardingsphere:classpath:shardingsphere-config.yaml
+    url: jdbc:shardingsphere:${shardingsphere.config-location:classpath:shardingsphere-config.yaml}
   cloud:
     nacos:
       discovery:
@@ -28,7 +28,7 @@ spring:
 rocketmq:
   name-server: ${rocketmq.name-server}
   producer:
-    group: index12306_pay-service_common-message-execute_pg
+    group: ticketing-system_pay-service_common-message-execute_pg
     send-message-timeout: 2000
     retry-times-when-send-failed: 1
     retry-times-when-send-async-failed: 1

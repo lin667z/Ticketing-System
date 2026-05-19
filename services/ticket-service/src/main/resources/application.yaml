@@ -5,7 +5,7 @@ spring:
   profiles:
     active: local
   application:
-    name: index12306-ticket${unique-name:}-service
+    name: ticketing-system-ticket${unique-name:}-service
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: ${db.username}
@@ -55,7 +55,7 @@ spring:
 rocketmq:
   name-server: ${rocketmq.name-server}
   producer:
-    group: index12306_ticket${unique-name:}-service_common-message-execute_pg
+    group: ticketing-system_ticket${unique-name:}-service_common-message-execute_pg
     send-message-timeout: 2000
     retry-times-when-send-failed: 1
     retry-times-when-send-async-failed: 1
