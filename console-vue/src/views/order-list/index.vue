@@ -285,7 +285,6 @@ import {
   TICKET_TYPE_LIST,
   TICKET_STATUS_LIST
 } from '@/constants'
-import Cookie from 'js-cookie'
 import { useRouter } from 'vue-router'
 
 const state = reactive({
@@ -302,7 +301,6 @@ const state = reactive({
   currentOrder: undefined,
   refundOrder: []
 })
-const userId = Cookie.get('userId')
 const router = useRouter()
 
 const columns = [
@@ -447,7 +445,6 @@ const pay = (sn) => {
 }
 const getTicketList = (current, size, statusType) => {
   fetchTicketList({
-    userId,
     current,
     size,
     statusType

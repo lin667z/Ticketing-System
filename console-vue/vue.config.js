@@ -1,10 +1,17 @@
 module.exports = {
     devServer: {
+        compress: false,
         proxy: {
             '/api': {
                 target: 'http://127.0.0.1:9000',
                 changeOrigin: true,
-                ws: true
+                ws: true,
+                onProxyRes: (proxyRes) => {
+                    if (proxyRes.headers['content-type'] && proxyRes.headers['content-type'].includes('text/event-stream')) {
+                        proxyRes.headers['cache-control'] = 'no-cache';
+                        proxyRes.headers['x-accel-buffering'] = 'no';
+                    }
+                }
             }
         },
         client: {

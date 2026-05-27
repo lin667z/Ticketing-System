@@ -15,6 +15,7 @@
     "dayjs": "^1.11.8",
     "js-cookie": "^3.0.5",
     "less-loader": "5",
+    "markdown-it": "^14.2.0",
     "moment": "^2.29.4",
     "vue": "^3.2.13",
     "vue-avatar": "^2.3.3",

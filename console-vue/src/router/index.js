@@ -118,6 +118,13 @@ const routes = [
     component: PaySuccess,
     icon: 'icon-zhifuchenggong',
     meta: { requiresAuth: false }
+  },
+  {
+    label: 'AI 智能客服',
+    path: '/ai-chat',
+    name: 'AiChat',
+    component: () => import('@/views/ai-chat/index.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 
