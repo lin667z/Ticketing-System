@@ -19,6 +19,22 @@ import java.util.Date;
 public class TicketOrderDetailSelfRespDTO {
 
     /**
+     * 订单号
+     */
+    private String orderSn;
+
+    /**
+     * 订单状态
+     */
+    private Integer status;
+
+    /**
+     * 下单日期
+     */
+    @JsonFormat(pattern = "yyyy-MM-dd", timezone = "GMT+8")
+    private Date orderTime;
+
+    /**
      * 出发站点
      */
     private String departure;

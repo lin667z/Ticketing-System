@@ -32,17 +32,15 @@ import org.ticketing_system.biz.orderservice.dto.resp.TicketOrderPassengerDetail
 import org.ticketing_system.biz.orderservice.mq.event.DelayCloseOrderEvent;
 import org.ticketing_system.biz.orderservice.mq.event.PayResultCallbackOrderEvent;
 import org.ticketing_system.biz.orderservice.mq.produce.DelayCloseOrderSendProduce;
-import org.ticketing_system.biz.orderservice.remote.UserRemoteService;
-import org.ticketing_system.biz.orderservice.remote.dto.UserQueryActualRespDTO;
 import org.ticketing_system.biz.orderservice.service.OrderItemService;
 import org.ticketing_system.biz.orderservice.service.OrderPassengerRelationService;
 import org.ticketing_system.biz.orderservice.service.OrderService;
 import org.ticketing_system.biz.orderservice.service.orderid.OrderIdGeneratorManager;
+import org.ticketing_system.framework.starter.common.enums.DelEnum;
 import org.ticketing_system.framework.starter.common.toolkit.BeanUtil;
 import org.ticketing_system.framework.starter.convention.exception.ClientException;
 import org.ticketing_system.framework.starter.convention.exception.ServiceException;
 import org.ticketing_system.framework.starter.convention.page.PageResponse;
-import org.ticketing_system.framework.starter.convention.result.Result;
 import org.ticketing_system.framework.starter.database.toolkit.PageUtil;
 import org.ticketing_system.frameworks.starter.user.core.UserContext;
 import org.redisson.api.RLock;
@@ -50,13 +48,23 @@ import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
+import java.util.Collections;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 订单服务接口层实现
+ * 
  * @author lin667z
  */
 @Slf4j
@@ -64,13 +72,16 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
 
+    /** 订单查询时间范围：最近 N 天 */
+    private static final int ORDER_QUERY_DAYS = 30;
+    private static final long FIRST_PAGE = 1L;
+
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
     private final OrderItemService orderItemService;
     private final OrderPassengerRelationService orderPassengerRelationService;
     private final RedissonClient redissonClient;
     private final DelayCloseOrderSendProduce delayCloseOrderSendProduce;
-    private final UserRemoteService userRemoteService;
 
     @Override
     public TicketOrderDetailRespDTO queryTicketOrderByOrderSn(String orderSn) {
@@ -88,8 +99,13 @@ public class OrderServiceImpl implements OrderService {
     @AutoOperate(type = TicketOrderDetailRespDTO.class, on = "data.records")
     @Override
     public PageResponse<TicketOrderDetailRespDTO> pageTicketOrder(TicketOrderPageQueryReqDTO requestParam) {
+        String userId = UserContext.getUserId();
+        Date thirtyDaysAgo = Date.from(LocalDateTime.now().minusDays(ORDER_QUERY_DAYS)
+                .atZone(ZoneId.systemDefault()).toInstant());
         LambdaQueryWrapper<OrderDO> queryWrapper = Wrappers.lambdaQuery(OrderDO.class)
-                .eq(OrderDO::getUserId, requestParam.getUserId())
+                .eq(OrderDO::getUserId, userId)
+                .eq(OrderDO::getDelFlag, DelEnum.NORMAL.code())
+                .ge(OrderDO::getCreateTime, thirtyDaysAgo)
                 .in(OrderDO::getStatus, buildOrderStatusList(requestParam))
                 .orderByDesc(OrderDO::getOrderTime);
         IPage<OrderDO> orderPage = orderMapper.selectPage(PageUtil.convert(requestParam), queryWrapper);
@@ -135,7 +151,8 @@ public class OrderServiceImpl implements OrderService {
                     .orderSn(orderSn)
                     .phone(each.getPhone())
                     .seatType(each.getSeatType())
-                    .username(requestParam.getUsername()).amount(each.getAmount()).carriageNumber(each.getCarriageNumber())
+                    .username(requestParam.getUsername()).amount(each.getAmount())
+                    .carriageNumber(each.getCarriageNumber())
                     .idCard(each.getIdCard())
                     .ticketType(each.getTicketType())
                     .idType(each.getIdType())
@@ -236,7 +253,8 @@ public class OrderServiceImpl implements OrderService {
         } else if (orderDO.getStatus() != OrderStatusEnum.PENDING_PAYMENT.getStatus()) {
             throw new ServiceException(OrderCanalErrorCodeEnum.ORDER_CANAL_STATUS_ERROR);
         }
-        RLock lock = redissonClient.getLock(StrBuilder.create("order:status-reversal:order_sn_").append(requestParam.getOrderSn()).toString());
+        RLock lock = redissonClient.getLock(
+                StrBuilder.create("order:status-reversal:order_sn_").append(requestParam.getOrderSn()).toString());
         if (!lock.tryLock()) {
             log.warn("订单重复修改状态，状态反转请求参数：{}", JSON.toJSONString(requestParam));
         }
@@ -277,42 +295,112 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public PageResponse<TicketOrderDetailSelfRespDTO> pageSelfTicketOrder(TicketOrderSelfPageQueryReqDTO requestParam) {
-        Result<UserQueryActualRespDTO> userActualResp = userRemoteService.queryActualUserByUsername(UserContext.getUsername());
-        LambdaQueryWrapper<OrderItemPassengerDO> queryWrapper = Wrappers.lambdaQuery(OrderItemPassengerDO.class)
-                .eq(OrderItemPassengerDO::getIdCard, userActualResp.getData().getIdCard())
-                .orderByDesc(OrderItemPassengerDO::getCreateTime);
-        IPage<OrderItemPassengerDO> orderItemPassengerPage = orderPassengerRelationService.page(PageUtil.convert(requestParam), queryWrapper);
-        return PageUtil.convert(orderItemPassengerPage, each -> {
-            LambdaQueryWrapper<OrderDO> orderQueryWrapper = Wrappers.lambdaQuery(OrderDO.class)
-                    .eq(OrderDO::getOrderSn, each.getOrderSn());
-            OrderDO orderDO = orderMapper.selectOne(orderQueryWrapper);
-            LambdaQueryWrapper<OrderItemDO> orderItemQueryWrapper = Wrappers.lambdaQuery(OrderItemDO.class)
-                    .eq(OrderItemDO::getOrderSn, each.getOrderSn())
-                    .eq(OrderItemDO::getIdCard, each.getIdCard());
-            OrderItemDO orderItemDO = orderItemMapper.selectOne(orderItemQueryWrapper);
-            TicketOrderDetailSelfRespDTO actualResult = BeanUtil.convert(orderDO, TicketOrderDetailSelfRespDTO.class);
-            BeanUtil.convertIgnoreNullAndBlank(orderItemDO, actualResult);
-            return actualResult;
-        });
+        String userId = UserContext.getUserId();
+        if (userId == null || userId.isBlank()) {
+            throw new ClientException("未获取到当前登录用户");
+        }
+        List<OrderDO> orders = querySelfOrdersByUserId(userId);
+        if (orders.isEmpty()) {
+            return buildSelfOrderPage(List.of(), requestParam.getCount(), 0);
+        }
+        LocalDateTime queryStartTime = resolveSelfOrderStartTime(requestParam.getDate(), orders);
+        if (queryStartTime == null) {
+            return buildSelfOrderPage(List.of(), requestParam.getCount(), 0);
+        }
+        Date startTime = toDate(queryStartTime.toLocalDate().atStartOfDay());
+        Date endTime = toDate(queryStartTime.toLocalDate().atTime(LocalTime.MAX));
+        List<OrderDO> matchedOrders = orders.stream()
+                .filter(each -> each.getOrderTime() != null)
+                .filter(each -> !each.getOrderTime().before(startTime) && !each.getOrderTime().after(endTime))
+                .toList();
+        Set<String> orderSnSet = matchedOrders.stream()
+                .map(OrderDO::getOrderSn)
+                .collect(Collectors.toSet());
+        Map<String, OrderDO> orderMap = matchedOrders.stream()
+                .collect(Collectors.toMap(OrderDO::getOrderSn, each -> each, (left, right) -> left, LinkedHashMap::new));
+        List<OrderItemDO> orderItems = querySelfOrderItems(userId, orderSnSet);
+        List<TicketOrderDetailSelfRespDTO> allRecords = orderItems.stream()
+                .filter(each -> orderMap.containsKey(each.getOrderSn()))
+                .map(each -> buildSelfOrderDetail(each, orderMap.get(each.getOrderSn())))
+                .toList();
+        List<TicketOrderDetailSelfRespDTO> limitedRecords = limitSelfOrderRecords(allRecords, requestParam.getCount());
+        return buildSelfOrderPage(limitedRecords, requestParam.getCount(), allRecords.size());
+    }
+
+    private List<OrderDO> querySelfOrdersByUserId(String userId) {
+        LambdaQueryWrapper<OrderDO> orderQueryWrapper = Wrappers.lambdaQuery(OrderDO.class)
+                .eq(OrderDO::getUserId, userId)
+                .eq(OrderDO::getDelFlag, DelEnum.NORMAL.code())
+                .orderByDesc(OrderDO::getOrderTime);
+        return orderMapper.selectList(orderQueryWrapper);
+    }
+
+    private List<OrderItemDO> querySelfOrderItems(String userId, Set<String> orderSnSet) {
+        if (orderSnSet.isEmpty()) {
+            return Collections.emptyList();
+        }
+        LambdaQueryWrapper<OrderItemDO> orderItemQueryWrapper = Wrappers.lambdaQuery(OrderItemDO.class)
+                .eq(OrderItemDO::getUserId, userId)
+                .in(OrderItemDO::getOrderSn, orderSnSet)
+                .orderByDesc(OrderItemDO::getCreateTime);
+        return orderItemMapper.selectList(orderItemQueryWrapper);
+    }
+
+    private LocalDateTime resolveSelfOrderStartTime(String date, List<OrderDO> orders) {
+        if (date != null && !date.isBlank()) {
+            try {
+                return java.time.LocalDate.parse(date).atStartOfDay();
+            } catch (DateTimeParseException ex) {
+                throw new ClientException("订单查询日期格式错误，请使用 yyyy-MM-dd");
+            }
+        }
+        if (orders.isEmpty()) {
+            return null;
+        }
+        Date latestOrderTime = orders.get(0).getOrderTime();
+        return latestOrderTime == null ? null : latestOrderTime.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+    }
+
+    private TicketOrderDetailSelfRespDTO buildSelfOrderDetail(OrderItemDO orderItemDO, OrderDO orderDO) {
+        TicketOrderDetailSelfRespDTO actualResult = BeanUtil.convert(orderDO, TicketOrderDetailSelfRespDTO.class);
+        BeanUtil.convertIgnoreNullAndBlank(orderItemDO, actualResult);
+        return actualResult;
+    }
+
+    private List<TicketOrderDetailSelfRespDTO> limitSelfOrderRecords(List<TicketOrderDetailSelfRespDTO> records, Long count) {
+        if (count == null || count < 1 || records.size() <= count) {
+            return records;
+        }
+        int limit = (int) Math.min(count, (long) Integer.MAX_VALUE);
+        return records.subList(0, limit);
+    }
+
+    private PageResponse<TicketOrderDetailSelfRespDTO> buildSelfOrderPage(List<TicketOrderDetailSelfRespDTO> records, Long count, int total) {
+        long size = count == null || count < 1 ? records.size() : count;
+        return PageResponse.<TicketOrderDetailSelfRespDTO>builder()
+                .current(FIRST_PAGE)
+                .size(size)
+                .total((long) total)
+                .records(records)
+                .build();
+    }
+
+    private Date toDate(LocalDateTime value) {
+        return Date.from(value.atZone(ZoneId.systemDefault()).toInstant());
     }
 
     private List<Integer> buildOrderStatusList(TicketOrderPageQueryReqDTO requestParam) {
         List<Integer> result = new ArrayList<>();
         switch (requestParam.getStatusType()) {
             case 0 -> result = ListUtil.of(
-                    OrderStatusEnum.PENDING_PAYMENT.getStatus()
-            );
+                    OrderStatusEnum.PENDING_PAYMENT.getStatus());
             case 1 -> result = ListUtil.of(
                     OrderStatusEnum.ALREADY_PAID.getStatus(),
                     OrderStatusEnum.PARTIAL_REFUND.getStatus(),
-                    OrderStatusEnum.FULL_REFUND.getStatus()
-            );
+                    OrderStatusEnum.FULL_REFUND.getStatus());
             case 2 -> result = ListUtil.of(
-                    OrderStatusEnum.COMPLETED.getStatus()
-            );
+                    OrderStatusEnum.COMPLETED.getStatus());
         }
         return result;
     }
 }
-
-

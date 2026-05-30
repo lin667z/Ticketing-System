@@ -25,7 +25,7 @@ public class DistributedIdAutoConfiguration {
     }
 
     /**
-     * 随机数构建雪花 WorkId 选择器。如果项目未使用 Redis，使用该选择器
+     * 随机数构建雪花 WorkId 选择器如果项目未使用 Redis，使用该选择器
      */
     @Bean
     @ConditionalOnMissingBean(LocalRedisWorkIdChoose.class)

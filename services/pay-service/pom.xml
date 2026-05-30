@@ -84,14 +84,8 @@
         </dependency>
 
         <dependency>
-            <groupId>org.ticketing_system</groupId>
-            <artifactId>ticketing-system-cache-spring-boot-starter</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
             <groupId>org.apache.shardingsphere</groupId>
-            <artifactId>shardingsphere-jdbc-core</artifactId>
+            <artifactId>shardingsphere-jdbc</artifactId>
         </dependency>
 
         <!-- NoClassDefFoundError: javax/xml/bind/JAXBException start -->
@@ -136,10 +130,9 @@
             <artifactId>spring-cloud-starter-openfeign</artifactId>
         </dependency>
 
-        <!-- openfeign 已不再提供默认负载均衡器 -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-loadbalancer</artifactId>
+            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
         </dependency>
 
         <dependency>
@@ -148,5 +141,3 @@
         </dependency>
     </dependencies>
 </project>
-
-

@@ -526,6 +526,9 @@ const sendMessage = async () => {
           if (chunk.sessionId && !currentConversationId.value) {
             currentConversationId.value = chunk.sessionId
           }
+          if (chunk.eventType === 'TRACE' || chunk.contentType === 'trace') {
+            return
+          }
           if (chunk.error || chunk.eventType === 'ERROR') {
             aiMessage.content = chunk.error || chunk.answer || '服务暂时不可用，请稍后再试。'
             aiMessage.meta = '铁宝 · AI Agent · 发送失败'

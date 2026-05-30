@@ -2,14 +2,14 @@ dataSources:
   ds_0:
     dataSourceClassName: com.zaxxer.hikari.HikariDataSource
     driverClassName: com.mysql.cj.jdbc.Driver
-    jdbcUrl: jdbc:mysql://127.0.0.1:3306/ticketing_system_order_0?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true&allowMultiQueries=true&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    jdbcUrl: jdbc:mysql://127.0.0.1:13306/ticketing_system_order_0?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true&allowMultiQueries=true&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
     username: root
     password: root
 
   ds_1:
     dataSourceClassName: com.zaxxer.hikari.HikariDataSource
     driverClassName: com.mysql.cj.jdbc.Driver
-    jdbcUrl: jdbc:mysql://127.0.0.1:3306/ticketing_system_order_1?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true&allowMultiQueries=true&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    jdbcUrl: jdbc:mysql://127.0.0.1:13306/ticketing_system_order_1?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true&allowMultiQueries=true&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
     username: root
     password: root
 
@@ -81,24 +81,28 @@ rules:
           strategy: standard
           algorithmClassName: org.ticketing_system.framework.starter.database.algorithm.sharding.CustomDbHashModShardingAlgorithm
       order_passenger_relation_table_mod:
-        type: HASH_MOD
+        type: CLASS_BASED
         props:
+          strategy: standard
+          algorithmClassName: org.ticketing_system.framework.starter.database.algorithm.sharding.CustomTableHashModShardingAlgorithm
           sharding-count: 32
   - !ENCRYPT
     tables:
       t_order_item:
         columns:
           id_card:
-            cipherColumn: id_card
-            encryptorName: common_encryptor
+            cipher:
+              name: id_card
+              encryptorName: common_encryptor
           phone:
-            cipherColumn: phone
-            encryptorName: common_encryptor
-        queryWithCipherColumn: true
+            cipher:
+              name: phone
+              encryptorName: common_encryptor
     encryptors:
       common_encryptor:
         type: AES
         props:
           aes-key-value: d6oadClrrb9A3GWo
+          digest-algorithm-name: SHA-1
 props:
   sql-show: true

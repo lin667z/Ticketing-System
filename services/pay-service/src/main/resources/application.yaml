@@ -22,7 +22,7 @@ spring:
   data:
     redis:
       host: ${redis.host}
-      port: 6379
+      port: 16379
       password: ${redis.password}
 
 rocketmq:

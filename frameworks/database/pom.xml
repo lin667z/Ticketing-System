@@ -13,7 +13,7 @@
 	<dependencies>
 		<dependency>
 			<groupId>com.baomidou</groupId>
-			<artifactId>mybatis-plus-boot-starter</artifactId>
+			<artifactId>mybatis-plus-spring-boot3-starter</artifactId>
 		</dependency>
 
 		<dependency>
@@ -47,10 +47,12 @@
 
 		<dependency>
 			<groupId>org.apache.shardingsphere</groupId>
-			<artifactId>shardingsphere-jdbc-core</artifactId>
+			<artifactId>shardingsphere-jdbc</artifactId>
 			<optional>true</optional>
 		</dependency>
-	</dependencies>
+        <dependency>
+            <groupId>org.apache.shardingsphere</groupId>
+            <artifactId>shardingsphere-sharding-core</artifactId>
+        </dependency>
+    </dependencies>
 </project>
-
-

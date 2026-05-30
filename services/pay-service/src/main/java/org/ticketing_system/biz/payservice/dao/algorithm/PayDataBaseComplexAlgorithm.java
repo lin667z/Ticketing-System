@@ -2,10 +2,9 @@ package org.ticketing_system.biz.payservice.dao.algorithm;
 
 import cn.hutool.core.collection.CollUtil;
 import lombok.Getter;
-import org.apache.shardingsphere.infra.util.exception.ShardingSpherePreconditions;
+import org.apache.shardingsphere.infra.exception.core.ShardingSpherePreconditions;
 import org.apache.shardingsphere.sharding.api.sharding.complex.ComplexKeysShardingAlgorithm;
 import org.apache.shardingsphere.sharding.api.sharding.complex.ComplexKeysShardingValue;
-import org.apache.shardingsphere.sharding.exception.algorithm.sharding.ShardingAlgorithmInitializationException;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -69,12 +68,12 @@ public class PayDataBaseComplexAlgorithm implements ComplexKeysShardingAlgorithm
     }
 
     private int getShardingCount(final Properties props) {
-        ShardingSpherePreconditions.checkState(props.containsKey(SHARDING_COUNT_KEY), () -> new ShardingAlgorithmInitializationException(getType(), "Sharding count cannot be null."));
+        ShardingSpherePreconditions.checkState(props.containsKey(SHARDING_COUNT_KEY), () -> new IllegalArgumentException("Sharding count cannot be null."));
         return Integer.parseInt(props.getProperty(SHARDING_COUNT_KEY));
     }
 
     private int getTableShardingCount(final Properties props) {
-        ShardingSpherePreconditions.checkState(props.containsKey(TABLE_SHARDING_COUNT_KEY), () -> new ShardingAlgorithmInitializationException(getType(), "Table sharding count cannot be null."));
+        ShardingSpherePreconditions.checkState(props.containsKey(TABLE_SHARDING_COUNT_KEY), () -> new IllegalArgumentException("Table sharding count cannot be null."));
         return Integer.parseInt(props.getProperty(TABLE_SHARDING_COUNT_KEY));
     }
 

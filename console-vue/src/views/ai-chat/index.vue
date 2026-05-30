@@ -78,6 +78,29 @@
               </div>
 
               <!-- 消息内容：统一使用 Markdown 渲染（流式和完成态） -->
+              <div v-if="msg.traceEvents && msg.traceEvents.length > 0" class="trace-block">
+                <div class="trace-header" @click="msg.traceCollapsed = !msg.traceCollapsed">
+                  <RightOutlined v-if="msg.traceCollapsed" class="trace-chevron" />
+                  <DownOutlined v-else class="trace-chevron" />
+                  <span class="trace-label">Agent Trace</span>
+                </div>
+                <div v-show="!msg.traceCollapsed" class="trace-content">
+                  <div
+                    v-for="group in buildTraceGroups(msg)"
+                    :key="group.key"
+                    class="trace-group"
+                  >
+                    <div class="trace-group-title">{{ group.label }}</div>
+                    <pre v-if="group.reasoning" class="trace-section trace-reasoning">{{ group.reasoning }}</pre>
+                    <pre v-if="group.content" class="trace-section">{{ group.content }}</pre>
+                    <pre v-if="group.result" class="trace-section trace-result">{{ group.result }}</pre>
+                    <div v-if="group.status.length > 0" class="trace-status">
+                      <span v-for="(status, statusIdx) in group.status" :key="statusIdx">{{ status }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div
                 v-if="msg.content && msg.renderedHtml"
                 class="message-text markdown-body"
@@ -330,6 +353,8 @@ const handleSelectConversation = async (conv) => {
           content: msgContent,
           reasoningContent: msg.reasoningContent || '',
           reasoningCollapsed: true,
+          traceEvents: [],
+          traceCollapsed: true,
           timestamp: formatTime(msg.createTime),
           usage: msg.tokenCount ? { totalTokens: msg.tokenCount } : null,
           streaming: false,
@@ -434,6 +459,8 @@ const sendMessage = async () => {
     content: '',
     reasoningContent: '',
     reasoningCollapsed: false,
+    traceEvents: [],
+    traceCollapsed: false,
     timestamp: '',
     streaming: true,
     toolStatus: null,
@@ -541,10 +568,72 @@ const sendMessage = async () => {
 }
 
 // 处理 SSE 数据块
+const appendTraceChunk = (aiMsg, chunk) => {
+  if (!aiMsg.traceEvents) {
+    aiMsg.traceEvents = []
+  }
+  aiMsg.traceEvents.push({
+    stage: chunk.traceStage || chunk.agentType || 'AGENT',
+    type: chunk.traceType || chunk.eventType || 'CONTENT',
+    label: chunk.traceLabel || chunk.agentType || chunk.traceStage || 'Agent',
+    delta: chunk.delta || '',
+    reasoningDelta: chunk.reasoningDelta || ''
+  })
+}
+
+const buildTraceGroups = (msg) => {
+  const groups = []
+  const groupIndex = new Map()
+  for (const event of msg.traceEvents || []) {
+    const key = event.stage || event.label || 'AGENT'
+    let group = groupIndex.get(key)
+    if (!group) {
+      group = {
+        key,
+        label: event.label || key,
+        content: '',
+        reasoning: '',
+        result: '',
+        status: []
+      }
+      groupIndex.set(key, group)
+      groups.push(group)
+    }
+    const type = event.type || 'CONTENT'
+    if (type === 'REASONING') {
+      group.reasoning += event.reasoningDelta || event.delta || ''
+    } else if (type === 'RESULT') {
+      group.result += event.delta || ''
+    } else if (type === 'STATUS' || type === 'TOOL_START' || type === 'TOOL_END') {
+      if (event.delta) {
+        group.status.push(event.delta)
+      }
+    } else {
+      group.content += event.delta || ''
+    }
+  }
+  return groups
+}
+
 const handleChunk = (chunk, aiMsg) => {
   // 更新 conversationId（服务端返回时使用）
   if (chunk.sessionId && !currentConversationId.value) {
     currentConversationId.value = chunk.sessionId
+  }
+
+  if (chunk.eventType === 'TRACE' || chunk.contentType === 'trace' || chunk.eventType === 'TOOL_START' || chunk.eventType === 'TOOL_END') {
+    appendTraceChunk(aiMsg, chunk)
+    if (chunk.eventType === 'TOOL_START') {
+      aiMsg.toolStatus = 'calling'
+      aiMsg.toolMessage = chunk.delta || '正在执行 Agent 任务...'
+    } else if (chunk.eventType === 'TOOL_END') {
+      aiMsg.toolStatus = 'done'
+      aiMsg.toolMessage = chunk.delta || '任务完成，正在整理回复...'
+    } else if (chunk.traceType === 'STATUS' && chunk.delta) {
+      aiMsg.toolStatus = 'calling'
+      aiMsg.toolMessage = chunk.delta
+    }
+    return
   }
 
   // 处理错误事件
@@ -1007,6 +1096,93 @@ const formatTime = (time) => {
 }
 
 // 消息正文
+.trace-block {
+  margin-bottom: 10px;
+  background: #f7f8fa;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.trace-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  color: #4b5563;
+  transition: background-color 0.15s ease;
+
+  &:hover {
+    background: #eef2f7;
+  }
+
+  .trace-chevron {
+    font-size: 10px;
+    color: #8a8f98;
+  }
+
+  .trace-label {
+    font-weight: 600;
+  }
+}
+
+.trace-content {
+  padding: 8px 10px 10px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.trace-group + .trace-group {
+  margin-top: 10px;
+}
+
+.trace-group-title {
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.trace-section {
+  margin: 4px 0 0;
+  padding: 8px;
+  max-height: 180px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #eceff3;
+  border-radius: 6px;
+  color: #4b5563;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.trace-reasoning {
+  color: #7c3aed;
+}
+
+.trace-result {
+  color: #047857;
+}
+
+.trace-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+
+  span {
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #eef2f7;
+    color: #6b7280;
+    font-size: 12px;
+  }
+}
+
 .message-text {
   white-space: pre-wrap;
   word-break: break-word;

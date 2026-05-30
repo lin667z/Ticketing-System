@@ -26,7 +26,7 @@ import static org.ticketing_system.biz.ticketservice.common.constant.TicketingSy
 
 /**
  * 购票流程过滤器之验证参数是否有效
- * 验证参数有效这个流程会大量交互缓存，为了优化性能需要使用 Lua。为了方便大家理解流程，这里使用多次调用缓存
+ * 验证参数有效这个流程会大量交互缓存，为了优化性能需要使用 Lua为了方便大家理解流程，这里使用多次调用缓存
  * @author lin667z
  */
 @Component
@@ -48,10 +48,10 @@ public class TrainPurchaseTicketParamVerifyChainHandler implements TrainPurchase
                 TimeUnit.DAYS);
         if (Objects.isNull(trainDO)) {
             // 如果按照严谨逻辑，类似异常应该记录当前用户的 userid 并发送到风控中心
-            // 如果一段时间有过几次的异常，直接封号处理。下述异常同理
+            // 如果一段时间有过几次的异常，直接封号处理下述异常同理
             throw new ClientException("请检查车次是否存在");
         }
-        // TODO，当前列车数据并没有通过定时任务每天生成最新的，所以需要隔离这个拦截。后期定时生成数据后删除该判断
+        // TODO，当前列车数据并没有通过定时任务每天生成最新的，所以需要隔离这个拦截后期定时生成数据后删除该判断
         if (!EnvironmentUtil.isDevEnvironment()) {
             // 查询车次是否已经发售
             if (new Date().before(trainDO.getSaleTime())) {

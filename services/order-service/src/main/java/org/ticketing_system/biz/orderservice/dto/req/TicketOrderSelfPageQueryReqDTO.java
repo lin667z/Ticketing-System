@@ -9,6 +9,16 @@ import org.ticketing_system.framework.starter.convention.page.PageRequest;
  */
 @Data
 public class TicketOrderSelfPageQueryReqDTO extends PageRequest {
+
+    /**
+     * 下单日期，格式 yyyy-MM-dd
+     */
+    private String date;
+
+    /**
+     * 返回条数
+     */
+    private Long count;
 }
 
 

@@ -12,7 +12,7 @@ import org.ticketing_system.framework.starter.idempotent.enums.IdempotentTypeEnu
  * 幂等执行处理器工厂
  * <p>
  * Q：可能会有同学有疑问：这里为什么要采用简单工厂模式？策略模式不行么？
- * A：策略模式同样可以达到获取真正幂等处理器功能。但是简单工厂的语意更适合这个场景，所以选择了简单工厂
+ * A：策略模式同样可以达到获取真正幂等处理器功能但是简单工厂的语意更适合这个场景，所以选择了简单工厂
  * @author lin667z
  */
 public final class IdempotentExecuteHandlerFactory {

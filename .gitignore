@@ -35,6 +35,7 @@ build/
 .claude/
 .codex/
 .roo/
+.kilo/
 AGENTS.md
 services/**/docs/
 

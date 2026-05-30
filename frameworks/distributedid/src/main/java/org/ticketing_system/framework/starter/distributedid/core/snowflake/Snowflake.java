@@ -12,7 +12,7 @@ import java.util.Date;
 
 /**
  * Twitter的Snowflake 算法<br>
- * 分布式系统中，有一些需要使用全局唯一ID的场景，有些时候我们希望能使用一种简单一些的ID，并且希望ID能够按照时间有序生成。
+ * 分布式系统中，有一些需要使用全局唯一ID的场景，有些时候我们希望能使用一种简单一些的ID，并且希望ID能够按照时间有序生成
  *
  * <p>
  * snowflake的结构如下(每部分用-分开):<br>
@@ -93,14 +93,14 @@ public class Snowflake implements Serializable, IdGenerator {
 
     /**
      * 当在低频模式下时，序号始终为0，导致生成ID始终为偶数<br>
-     * 此属性用于限定一个随机上限，在不同毫秒下生成序号时，给定一个随机数，避免偶数问题。<br>
-     * 注意次数必须小于{@link #SEQUENCE_MASK}，{@code 0}表示不使用随机数。<br>
-     * 这个上限不包括值本身。
+     * 此属性用于限定一个随机上限，在不同毫秒下生成序号时，给定一个随机数，避免偶数问题<br>
+     * 注意次数必须小于{@link #SEQUENCE_MASK}，{@code 0}表示不使用随机数<br>
+     * 这个上限不包括值本身
      */
     private final long randomSequenceLimit;
 
     /**
-     * 自增序号，当高频模式下时，同一毫秒内生成N个ID，则这个序号在同一毫秒下，自增以避免ID重复。
+     * 自增序号，当高频模式下时，同一毫秒内生成N个ID，则这个序号在同一毫秒下，自增以避免ID重复
      */
     private long sequence = 0L;
 
@@ -166,7 +166,7 @@ public class Snowflake implements Serializable, IdGenerator {
      * @param dataCenterId        数据中心id
      * @param isUseSystemClock    是否使用{@link SystemClock} 获取当前时间戳
      * @param timeOffset          允许时间回拨的毫秒数
-     * @param randomSequenceLimit 限定一个随机上限，在不同毫秒下生成序号时，给定一个随机数，避免偶数问题，0表示无随机，上限不包括值本身。
+     * @param randomSequenceLimit 限定一个随机上限，在不同毫秒下生成序号时，给定一个随机数，避免偶数问题，0表示无随机，上限不包括值本身
      * @since 5.8.0
      */
     public Snowflake(Date epochDate, long workerId, long dataCenterId, boolean isUseSystemClock, long timeOffset, long randomSequenceLimit) {
@@ -220,7 +220,7 @@ public class Snowflake implements Serializable, IdGenerator {
                 // 容忍指定的回拨，避免NTP校时造成的异常
                 timestamp = lastTimestamp;
             } else {
-                // 如果服务器时间有问题(时钟后退) 报错。
+                // 如果服务器时间有问题(时钟后退) 报错
                 throw new IllegalStateException(StrUtil.format("Clock moved backwards. Refusing to generate id for {}ms", lastTimestamp - timestamp));
             }
         }

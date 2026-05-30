@@ -41,7 +41,7 @@ public final class PayIdGeneratorManager implements InitializingBean {
             StringRedisTemplate instance = (StringRedisTemplate) distributedCache.getInstance();
             String DISTRIBUTED_ID_GENERATOR_KEY = "distributed_pay_id_generator_config";
             long incremented = Optional.ofNullable(instance.opsForValue().increment(DISTRIBUTED_ID_GENERATOR_KEY)).orElse(0L);
-            // 注意：这里只是提供一种分库分表基因法的实现思路，所以将标识位定义 32。其次，如果对比 TB 网站订单号，应该不是在应用内生成，而是有一个全局服务调用获取
+            // 注意：这里只是提供一种分库分表基因法的实现思路，所以将标识位定义 32其次，如果对比 TB 网站订单号，应该不是在应用内生成，而是有一个全局服务调用获取
             int NODE_MAX = 32;
             if (incremented > NODE_MAX) {
                 incremented = 0;

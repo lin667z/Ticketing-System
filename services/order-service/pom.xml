@@ -80,7 +80,7 @@
 
         <dependency>
             <groupId>org.apache.shardingsphere</groupId>
-            <artifactId>shardingsphere-jdbc-core</artifactId>
+            <artifactId>shardingsphere-jdbc</artifactId>
         </dependency>
 
         <dependency>
@@ -99,10 +99,9 @@
             <artifactId>spring-cloud-starter-openfeign</artifactId>
         </dependency>
 
-        <!-- openfeign 已不再提供默认负载均衡器 -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-loadbalancer</artifactId>
+            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
         </dependency>
 
         <!-- 一个简单易用的数据映射框架，通过简单的注解配置快速根据外键/编码值填充相关字段，支持字典，枚举，方法等多种数据源 -->
@@ -141,5 +140,3 @@
         <!-- NoClassDefFoundError: javax/xml/bind/JAXBException end -->
     </dependencies>
 </project>
-
-

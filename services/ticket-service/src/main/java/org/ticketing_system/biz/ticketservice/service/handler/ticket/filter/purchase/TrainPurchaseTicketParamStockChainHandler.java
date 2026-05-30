@@ -30,7 +30,7 @@ public class TrainPurchaseTicketParamStockChainHandler implements TrainPurchaseT
 
     @Override
     public void handler(PurchaseTicketReqDTO requestParam) {
-        // 车次站点是否还有余票。如果用户提交多个乘车人非同一座位类型，拆分验证
+        // 车次站点是否还有余票如果用户提交多个乘车人非同一座位类型，拆分验证
         String keySuffix = StrUtil.join("_", requestParam.getTrainId(), requestParam.getDeparture(), requestParam.getArrival());
         StringRedisTemplate stringRedisTemplate = (StringRedisTemplate) distributedCache.getInstance();
         List<PurchaseTicketPassengerDetailDTO> passengerDetails = requestParam.getPassengers();

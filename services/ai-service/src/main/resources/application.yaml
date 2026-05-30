@@ -1,0 +1,174 @@
+server:
+  port: 9005
+  compression:
+    enabled: false
+
+spring:
+  profiles:
+    active: local
+  application:
+    name: ticketing-system-ai${unique-name:}-service
+  ai:
+    openai:
+      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api-key: ${CHANNELS_BAILIAN_APIKEY}
+      chat:
+        options:
+          model: qwen-3.5-flash
+    chat:
+      client:
+        observations:
+          log-prompt: ${AI_OBSERVATION_LOG_PROMPT:false}
+          log-completion: ${AI_OBSERVATION_LOG_COMPLETION:false}
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${db.username:root}
+    password: ${db.password:root}
+    url: ${db.url}
+    hikari:
+      connection-test-query: select 1
+      connection-timeout: 20000
+      idle-timeout: 300000
+      maximum-pool-size: 5
+      minimum-idle: 5
+  data:
+    redis:
+      host: ${redis.host:127.0.0.1}
+      port: 16379
+      password: ${redis.password:123456}
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${nacos.server-addr}
+      config:
+        server-addr: ${spring.cloud.nacos.discovery.server-addr}
+        import-check:
+          enabled: false
+      username: ${nacos.username}
+      password: ${nacos.password}
+    sentinel:
+      transport:
+        dashboard: ${sentinel.dashboard}
+        port: 8719
+
+mybatis-plus:
+  global-config:
+    db-config:
+      logic-delete-field: delFlag
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  mapper-locations: classpath:mapper/*.xml
+
+framework:
+  fastjson:
+    safe-mode: true
+  cache:
+    redis:
+      value-timeout: 16
+      value-time-unit: days
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+ai:
+  memory:
+    max-history-messages: 20
+    max-history-chars: 24000
+  channels:
+    - code: bailian
+      protocol: openai
+      baseUrl: https://dashscope.aliyuncs.com/compatible-mode/v1
+      chatCompletionsUrl: https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
+      apiKey: ${CHANNELS_BAILIAN_APIKEY}
+    - code: zhipu
+      protocol: openai
+      baseUrl: https://open.bigmodel.cn/api/paas/v4/
+      chatCompletionsUrl: https://open.bigmodel.cn/api/paas/v4/chat/completions
+      apiKey: ${CHANNELS_ZHIPU_APIKEY}
+    - code: kimi
+      protocol: openai
+      baseUrl: https://api.moonshot.cn/v1
+      chatCompletionsUrl: https://api.moonshot.cn/v1/chat/completions
+      apiKey: ${CHANNELS_KIMI_APIKEY}
+    - code: deepseek
+      protocol: openai
+      baseUrl: https://api.deepseek.com
+      chatCompletionsUrl: https://api.deepseek.com/chat/completions
+      apiKey: ${CHANNELS_DEEPSEEK_APIKEY}
+  failover:
+    enabled: true
+    circuit-breaker-threshold: 3
+    half-open-delay-seconds: 30
+    global-fallback:
+      provider: bailian
+      real-model: qwen3.6-plus
+    routes:
+      advanced-reasoning:
+        - id: ch-01
+          provider: zhipu
+          real-model: glm-4.5-air
+          priority: 1
+          timeout-ms: 15000
+          enabled: true
+        - id: ch-02
+          provider: bailian
+          real-model: qwen3.5-flash
+          priority: 2
+          timeout-ms: 6000
+          enabled: true
+        - id: ch-03
+          provider: deepseek
+          real-model: deepseek-v4-flash
+          priority: 3
+          timeout-ms: 8000
+          enabled: true
+        - id: ch-04
+          provider: kimi
+          real-model: kimi-k2.5
+          priority: 4
+          timeout-ms: 7000
+          enabled: false
+  user-service:
+    base-url: lb://ticketing-system-user-service
+    connect-timeout: 5000
+    response-timeout: 10000
+  rate-limit:
+    enabled: true
+    max-requests-per-minute: 10
+    max-requests-per-minute-anonymous: 3
+  cache:
+    user-profile-ttl-seconds: 300
+    bloom-filter-enabled: true
+  chat:
+    max-history: 20
+    tool-result-max-chars: 4000
+    context-ttl-seconds: 86400
+    last-turns: 2
+    summary-start-turn: 3
+  agent:
+    enabled: true
+    trace-enabled: true
+    fast-general-route-enabled: true
+    max-tasks: 5
+    task-timeout-ms: 10000
+    aggregator-llm-enabled: true
+    master-max-tokens: 512
+    aggregator-max-tokens: 700
+    general-max-tokens: 900
+    result-max-chars: 500
+    max-display-count: 5
+    order-display-count: 3
+  remote:
+    connect-timeout-ms: 3000
+    response-timeout-ms: 5000
+    profile-retry-attempts: 1
+    profile-retry-backoff-ms: 200
+    max-connections: 200

@@ -78,7 +78,7 @@ public class UserLoginServiceImpl implements UserLoginService {
     public UserLoginRespDTO login(UserLoginReqDTO requestParam) {
         String usernameOrMailOrPhone = requestParam.getUsernameOrMailOrPhone();
         boolean mailFlag = false;
-        // 时间复杂度最佳 O(1)。indexOf or contains 时间复杂度为 O(n)
+        // 时间复杂度最佳 O(1)indexOf or contains 时间复杂度为 O(n)
         for (char c : usernameOrMailOrPhone.toCharArray()) {
             if (c == '@') {
                 mailFlag = true;
