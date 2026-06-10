@@ -10,6 +10,8 @@ import org.ticketing_system.biz.orderservice.dto.resp.TicketOrderDetailSelfRespD
 import org.ticketing_system.biz.orderservice.mq.event.PayResultCallbackOrderEvent;
 import org.ticketing_system.framework.starter.convention.page.PageResponse;
 
+import java.util.Map;
+
 /**
  * 订单接口层
  * @author lin667z
@@ -69,12 +71,12 @@ public interface OrderService {
     void payCallbackOrder(PayResultCallbackOrderEvent requestParam);
 
     /**
-     * 查询本人车票订单
+     * 查询本人车票订单（30天硬上限，LIMIT 模式，非分页）
      *
      * @param requestParam 请求参数
-     * @return 本人车票订单集合
+     * @return map 包含 records（订单列表）和可选的 message（提示信息）
      */
-    PageResponse<TicketOrderDetailSelfRespDTO> pageSelfTicketOrder(TicketOrderSelfPageQueryReqDTO requestParam);
+    Map<String, Object> querySelfTicketOrders(TicketOrderSelfPageQueryReqDTO requestParam);
 }
 
 

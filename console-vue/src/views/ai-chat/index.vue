@@ -21,6 +21,15 @@
           <div class="chat-title">铁宝</div>
           <div class="chat-subtitle">AI Agent · 在线</div>
         </div>
+        <div class="chat-header-actions">
+          <Button
+            :type="showProcess ? 'primary' : 'default'"
+            size="small"
+            @click="showProcess = !showProcess"
+          >
+            {{ showProcess ? '隐藏过程' : '显示过程' }}
+          </Button>
+        </div>
       </div>
 
       <!-- 消息列表区域 -->
@@ -44,107 +53,155 @@
           </div>
         </div>
 
-        <!-- 消息气泡 -->
+        <!-- 消息卡片列表（按类型渲染） -->
         <div
-          v-for="msg in messages"
+          v-for="(msg, index) in messages"
           :key="msg.id"
           :class="['message-row', msg.role]"
         >
+          <!-- 阶段分隔标题：在用户消息后、或不同类型的AI阶段切换之间显示 -->
+          <div
+            v-if="index > 0 && shouldShowDivider(msg, messages[index - 1])"
+            class="phase-header"
+            :class="'phase-' + getDividerPhaseType(msg, messages[index - 1])"
+          >
+            <span class="phase-icon">
+              <BulbOutlined v-if="getDividerPhaseType(msg, messages[index - 1]) === 'thinking'" />
+              <ToolOutlined v-else-if="getDividerPhaseType(msg, messages[index - 1]) === 'tool'" />
+              <MessageOutlined v-else-if="getDividerPhaseType(msg, messages[index - 1]) === 'reply'" />
+              <IdcardOutlined v-else-if="getDividerPhaseType(msg, messages[index - 1]) === 'card'" />
+              <RobotOutlined v-else />
+            </span>
+            <span class="phase-label">{{ getDividerLabel(msg, messages[index - 1]) }}</span>
+          </div>
+
           <div class="message-body">
-            <!-- 工具调用状态 -->
-            <div v-if="msg.toolStatus" class="tool-indicator">
-              <LoadingOutlined v-if="msg.toolStatus === 'calling'" spin />
-              <CheckCircleOutlined v-else-if="msg.toolStatus === 'done'" />
-              <span class="tool-text">{{ msg.toolMessage }}</span>
-            </div>
-
-            <div class="message-bubble">
-              <!-- 流式加载动画（等待首字） -->
-              <template v-if="msg.streaming && !msg.content && !msg.reasoningContent">
-                <span class="typing-dot"></span>
-                <span class="typing-dot"></span>
-                <span class="typing-dot"></span>
-              </template>
-
-              <!-- 推理过程展示（可折叠） -->
-              <div v-if="msg.reasoningContent" class="reasoning-block">
-                <div class="reasoning-header" @click="msg.reasoningCollapsed = !msg.reasoningCollapsed">
-                  <RightOutlined v-if="msg.reasoningCollapsed" class="reasoning-chevron" />
-                  <DownOutlined v-else class="reasoning-chevron" />
-                  <span class="reasoning-label">思考过程</span>
-                  <span v-if="msg.streaming && !msg.content" class="typing-cursor">|</span>
-                </div>
-                <div v-show="!msg.reasoningCollapsed" class="reasoning-content">{{ msg.reasoningContent }}</div>
+            <!-- ── 用户消息 ── -->
+            <template v-if="msg.role === 'user'">
+              <div class="message-bubble">
+                <div class="message-text">{{ msg.content }}</div>
               </div>
+              <div class="message-meta">
+                <span>{{ msg.timestamp || formatTime(Date.now()) }}</span>
+              </div>
+              <div v-if="msg.content" class="message-actions">
+                <Button type="text" size="small" @click="copyMessage(msg.content)">
+                  <CopyOutlined />
+                </Button>
+              </div>
+            </template>
 
-              <!-- 消息内容：统一使用 Markdown 渲染（流式和完成态） -->
-              <div v-if="msg.traceEvents && msg.traceEvents.length > 0" class="trace-block">
-                <div class="trace-header" @click="msg.traceCollapsed = !msg.traceCollapsed">
-                  <RightOutlined v-if="msg.traceCollapsed" class="trace-chevron" />
-                  <DownOutlined v-else class="trace-chevron" />
-                  <span class="trace-label">Agent Trace</span>
+            <!-- ── AI 卡片 ── -->
+            <template v-else>
+              <!-- 阶段流水线卡片 — 显眼的蓝色时间线 -->
+              <div v-if="msg.cardType === 'stage'" class="card-stage-pipeline">
+                <div class="stage-header">
+                  <span class="stage-header-icon">
+                    <LoadingOutlined v-if="msg.streaming" spin />
+                    <CheckCircleOutlined v-else />
+                  </span>
+                  <span class="stage-header-title">{{ msg.streaming ? '正在处理' : '处理完成' }}</span>
                 </div>
-                <div v-show="!msg.traceCollapsed" class="trace-content">
+                <div class="stage-steps">
                   <div
-                    v-for="group in buildTraceGroups(msg)"
-                    :key="group.key"
-                    class="trace-group"
+                    v-for="(step, si) in (msg.stageSteps || [])"
+                    :key="si"
+                    :class="['stage-step', step.status]"
                   >
-                    <div class="trace-group-title">{{ group.label }}</div>
-                    <pre v-if="group.reasoning" class="trace-section trace-reasoning">{{ group.reasoning }}</pre>
-                    <pre v-if="group.content" class="trace-section">{{ group.content }}</pre>
-                    <pre v-if="group.result" class="trace-section trace-result">{{ group.result }}</pre>
-                    <div v-if="group.status.length > 0" class="trace-status">
-                      <span v-for="(status, statusIdx) in group.status" :key="statusIdx">{{ status }}</span>
-                    </div>
+                    <span class="step-dot">
+                      <LoadingOutlined v-if="step.status === 'active'" spin class="step-spin" />
+                      <CheckCircleOutlined v-else-if="step.status === 'done'" class="step-check" />
+                    </span>
+                    <span class="step-label">{{ step.label }}</span>
+                  </div>
+                  <div v-if="(!msg.stageSteps || msg.stageSteps.length === 0) && msg.streaming" class="stage-step active">
+                    <span class="step-dot"><LoadingOutlined spin class="step-spin" /></span>
+                    <span class="step-label">处理中...</span>
                   </div>
                 </div>
               </div>
 
-              <div
-                v-if="msg.content && msg.renderedHtml"
-                class="message-text markdown-body"
-                v-html="msg.renderedHtml"
-              ></div>
-
-              <!-- 兜底纯文本（renderedHtml 尚未生成时） -->
-              <div
-                v-if="msg.content && !msg.renderedHtml"
-                class="message-text"
-              >{{ msg.content }}</div>
-
-              <!-- 业务卡片组件 -->
-              <div
-                v-if="msg.components && msg.components.length > 0 && !msg.streaming"
-                class="message-components"
-              >
-                <TrainCard
-                  v-for="(comp, cIdx) in msg.components.filter(c => c.type === 'train_card')"
-                  :key="comp.id || cIdx"
-                  :data="comp.data"
-                />
-                <OrderCard
-                  v-for="(comp, cIdx) in msg.components.filter(c => c.type === 'order_card')"
-                  :key="comp.id || cIdx"
-                  :data="comp.data"
-                />
+              <!-- 工具执行卡片 — 显眼的琥珀色卡片 -->
+              <div v-else-if="msg.cardType === 'tool'" class="card-tool" :class="{ done: msg.toolStatus === 'done' }">
+                <div class="tool-card-header">
+                  <div class="tool-card-header-left">
+                    <LoadingOutlined v-if="msg.toolStatus !== 'done'" spin class="tool-spin" />
+                    <CheckCircleOutlined v-else class="tool-done-icon" />
+                    <span class="tool-agent-name">{{ msg.label || '工具执行' }}</span>
+                  </div>
+                  <span v-if="msg.toolStatus !== 'done'" class="tool-badge running">运行中</span>
+                  <span v-else class="tool-badge done">完成</span>
+                </div>
+                <div v-if="msg.content" class="tool-card-body">{{ msg.content }}</div>
               </div>
 
-              <!-- 流式打字光标 -->
-              <span v-if="msg.streaming && msg.content" class="typing-cursor">|</span>
-            </div>
+              <!-- 推理过程卡片（可折叠）— eventType/reasoningDelta 绑定样式 -->
+              <div v-else-if="msg.cardType === 'reasoning'" class="card-reasoning" :class="{ streaming: msg.streaming }">
+                <div class="reasoning-header" @click="msg.collapsed = !msg.collapsed">
+                  <RightOutlined v-if="msg.collapsed" class="reasoning-chevron" />
+                  <DownOutlined v-else class="reasoning-chevron" />
+                  <BulbOutlined class="reasoning-bulb" />
+                  <span class="reasoning-label">{{ msg.label || '思考过程' }}</span>
+                  <span v-if="msg.streaming" class="reasoning-badge live">推理中</span>
+                  <span v-else class="reasoning-badge done">已折叠</span>
+                </div>
+                <div v-show="!msg.collapsed" class="reasoning-content">
+                  {{ msg.content }}
+                  <span v-if="msg.streaming" class="typing-cursor">|</span>
+                </div>
+              </div>
 
-            <!-- 消息元信息 -->
-            <div class="message-meta">
-              <span>{{ msg.timestamp || formatTime(Date.now()) }}</span>
-            </div>
+              <!-- 文本卡片（主回答）— eventType/delta/contentStyle 绑定样式 -->
+              <!-- streaming 期间始终显示原始流式文本，结束后显示完整 Markdown -->
+              <div v-else-if="msg.cardType === 'text'" :class="['message-bubble', msg.contentStyle ? 'msg-style-' + msg.contentStyle : '']">
+                <div v-if="msg.streaming && msg.content" class="message-text streaming-raw">{{ msg.content }}<span class="typing-cursor">|</span></div>
+                <div v-else-if="!msg.streaming && msg.renderedHtml" class="message-text markdown-body" v-html="msg.renderedHtml"></div>
+                <div v-else-if="msg.content" class="message-text">{{ msg.content }}<span v-if="msg.streaming" class="typing-cursor">|</span></div>
+              </div>
+              <div v-if="msg.cardType === 'text' && msg.timestamp" class="message-meta">
+                <span>{{ msg.timestamp }}</span>
+              </div>
+              <div v-if="msg.cardType === 'text' && msg.content && !msg.streaming" class="message-actions">
+                <Button type="text" size="small" @click="copyMessage(msg.content)">
+                  <CopyOutlined />
+                </Button>
+              </div>
 
-            <!-- 操作按钮 -->
-            <div v-if="msg.content && !msg.streaming" class="message-actions">
-              <Button type="text" size="small" @click="copyMessage(msg.content)">
-                <CopyOutlined />
-              </Button>
-            </div>
+              <!-- 车次卡片 -->
+              <TrainCard v-else-if="msg.cardType === 'train_card'" :data="msg.data" />
+
+              <!-- 订单卡片 -->
+              <OrderCard v-else-if="msg.cardType === 'order_card'" :data="msg.data" />
+
+              <!-- 兼容旧数据（无 cardType 的历史 AI 消息） -->
+              <template v-else-if="!msg.cardType">
+                <div class="message-bubble">
+                  <div v-if="msg.reasoningContent" class="card-reasoning">
+                    <div class="reasoning-header" @click="msg.reasoningCollapsed = !msg.reasoningCollapsed">
+                      <RightOutlined v-if="msg.reasoningCollapsed" class="reasoning-chevron" />
+                      <DownOutlined v-else class="reasoning-chevron" />
+                      <BulbOutlined class="reasoning-bulb" />
+                      <span class="reasoning-label">思考过程</span>
+                    </div>
+                    <div v-show="!msg.reasoningCollapsed" class="reasoning-content">{{ msg.reasoningContent }}</div>
+                  </div>
+                  <div v-if="msg.renderedHtml" class="message-text markdown-body" v-html="msg.renderedHtml"></div>
+                  <div v-else class="message-text">{{ msg.content }}</div>
+                </div>
+                <div v-if="msg.timestamp" class="message-meta">
+                  <span>{{ msg.timestamp }}</span>
+                </div>
+              </template>
+            </template>
+          </div>
+        </div>
+
+        <!-- 流式加载等待动画 -->
+        <div v-if="isStreaming && !hasStreamingCards()" class="waiting-row">
+          <div class="waiting-indicator">
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
           </div>
         </div>
 
@@ -205,11 +262,14 @@ import {
   LoadingOutlined,
   CheckCircleOutlined,
   DownOutlined,
-  RightOutlined
+  RightOutlined,
+  BulbOutlined,
+  ToolOutlined,
+  MessageOutlined,
+  IdcardOutlined
 } from '@ant-design/icons-vue'
 import {
   fetchAiChatStream,
-  createConversation,
   deleteConversation,
   renameConversation,
   getConversationList,
@@ -221,17 +281,54 @@ import TrainCard from './components/TrainCard.vue'
 import OrderCard from './components/OrderCard.vue'
 import dayjs from 'dayjs'
 
+const STAGE_DISPLAY_MAP = {
+  'AI Agent': '正在处理',
+  'Session context': '正在加载会话上下文',
+  'User profile': '正在加载用户信息',
+  'ROUTER': '正在分析需求',
+  'Master Agent': '正在制定执行计划',
+  'Agent Dispatcher': '正在分配任务',
+  '正在整理结果': '正在整合结果',
+  '任务调度': '正在分配任务',
+  'Ticket Info Agent': '正在查询车票信息',
+  'Order Query Agent': '正在查询订单信息',
+  'TICKET_INFO': '正在查询车票信息',
+  'ORDER_QUERY': '正在查询订单信息',
+  'GENERAL_CHAT': '正在处理',
+  'AGGREGATOR': '正在整合结果'
+}
+
+const resolveStageLabel = (traceLabel) => {
+  if (!traceLabel) return '处理中'
+  if (STAGE_DISPLAY_MAP[traceLabel]) return STAGE_DISPLAY_MAP[traceLabel]
+  const agentType = traceLabel.replace(/\s+Agent$/, '')
+  if (STAGE_DISPLAY_MAP[agentType]) return STAGE_DISPLAY_MAP[agentType]
+  return traceLabel
+}
+
+const PHASE_TYPE = {
+  DEFAULT: 'default',
+  THINKING: 'thinking',
+  TOOL: 'tool',
+  REPLY: 'reply',
+  CARD: 'card'
+}
+
+const PHASE_DEFS = {
+  [PHASE_TYPE.DEFAULT]: { label: '铁宝', color: '#1677ff' },
+  [PHASE_TYPE.THINKING]: { label: '正在思考', color: '#1677ff' },
+  [PHASE_TYPE.TOOL]: { label: '工具执行', color: '#fa8c16' },
+  [PHASE_TYPE.REPLY]: { label: '开始回复', color: '#52c41a' },
+  [PHASE_TYPE.CARD]: { label: '查询结果', color: '#13c2c2' }
+}
+
 // ===================== 响应式状态 =====================
 
 const sidebarCollapsed = ref(false)
-
-// 对话列表
 const conversations = ref([])
 const conversationsLoading = ref(false)
 const conversationsLoaded = ref(false)
 const currentConversationId = ref(null)
-
-// 消息列表
 const messages = ref([])
 const inputMessage = ref('')
 const isStreaming = ref(false)
@@ -242,32 +339,125 @@ const messagesContainer = ref(null)
 const inputRef = ref(null)
 const streamController = ref(null)
 const shouldAutoScroll = ref(true)
+const showProcess = ref(true)
 
-// 流式 Markdown 渲染的防抖定时器
 let streamRenderTimer = null
-const STREAM_RENDER_INTERVAL = 80 // ms，每 80ms 渲染一次 markdown
+const STREAM_RENDER_INTERVAL = 80
 
-const renderStreamingMarkdown = (aiMsg) => {
-  if (!aiMsg.content) return
-  const safeContent = preprocessStreamingContent(aiMsg.content)
-  const { html } = renderMarkdown(safeContent || aiMsg.content)
-  aiMsg.renderedHtml = html
+const PROCESS_EVENT_TYPES = ['STAGE', 'TRACE', 'TOOL_START', 'TOOL_END', 'RETRYING']
+
+// ===================== 卡片管理 =====================
+
+let activeCards = null
+
+const resetActiveCards = () => {
+  activeCards = {
+    stage: null,
+    reasoning: null,
+    text: null,
+    tool: null
+  }
 }
 
-const scheduleStreamRender = (aiMsg) => {
-  // 每次收到新的 delta 都重置防抖定时器，确保：
-  // 1. 高速涌入时不频繁渲染（防抖）
-  // 2. 最后一批 delta 在流停止后一定会被渲染（不再有新的 chunk 来触发）
+const hasStreamingCards = () => {
+  return messages.value.some(m => m.role === 'ai' && m.streaming)
+}
+
+const createCard = (cardType, init = {}) => {
+  const card = {
+    id: Date.now() + Math.random(),
+    role: 'ai',
+    cardType,
+    content: init.content || '',
+    data: init.data || null,
+    streaming: true,
+    timestamp: '',
+    collapsed: init.collapsed !== undefined ? init.collapsed : false,
+    label: init.label || '',
+    renderedHtml: '',
+    contentStyle: init.contentStyle || null,
+    stageSteps: cardType === 'stage' ? [] : undefined,
+    toolStatus: cardType === 'tool' ? 'running' : undefined
+  }
+  messages.value.push(card)
+  if (activeCards) {
+    activeCards[cardType] = card
+  }
+  return card
+}
+
+const getOrCreateCard = (cardType, init = {}) => {
+  if (activeCards && activeCards[cardType]) {
+    return activeCards[cardType]
+  }
+  return createCard(cardType, init)
+}
+
+const finalizeCard = (cardType) => {
+  if (!activeCards) return
+  const card = activeCards[cardType]
+  if (card) {
+    card.streaming = false
+    if (cardType === 'stage' && card.stageSteps && card.stageSteps.length > 0) {
+      const lastStep = card.stageSteps[card.stageSteps.length - 1]
+      if (lastStep && lastStep.status === 'active') {
+        lastStep.status = 'done'
+      }
+    }
+    if (cardType === 'reasoning') {
+      card.collapsed = true
+    }
+    if (cardType === 'tool') {
+      card.toolStatus = 'done'
+    }
+    if (cardType === 'text' && card.content) {
+      const { html } = renderMarkdown(card.content)
+      card.renderedHtml = html
+    }
+  }
+  activeCards[cardType] = null
+}
+
+const finalizeAllCards = () => {
+  if (!activeCards) return
+  for (const type of Object.keys(activeCards)) {
+    finalizeCard(type)
+  }
+}
+
+const renderCardMarkdown = (card) => {
+  if (!card || !card.content) return
+  const safeContent = preprocessStreamingContent(card.content)
+  const { html } = renderMarkdown(safeContent || card.content)
+  card.renderedHtml = html
+}
+
+const scheduleCardRender = (card) => {
   if (streamRenderTimer) {
     clearTimeout(streamRenderTimer)
   }
   streamRenderTimer = setTimeout(() => {
     streamRenderTimer = null
-    renderStreamingMarkdown(aiMsg)
+    renderCardMarkdown(card)
   }, STREAM_RENDER_INTERVAL)
 }
 
-// 快捷提示
+const addStageStep = (label) => {
+  if (!label) return
+  const card = getOrCreateCard('stage')
+  if (!card.stageSteps) {
+    card.stageSteps = []
+  }
+  const lastStep = card.stageSteps[card.stageSteps.length - 1]
+  if (lastStep && lastStep.label === label) {
+    return
+  }
+  if (lastStep && lastStep.status === 'active') {
+    lastStep.status = 'done'
+  }
+  card.stageSteps.push({ label, status: 'active' })
+}
+
 const quickPrompts = [
   '帮我查询明天北京到上海的高铁',
   '如何办理退票？',
@@ -284,13 +474,11 @@ onMounted(() => {
 
 // ===================== 对话管理 =====================
 
-// 加载对话列表
 const loadConversations = async () => {
   conversationsLoading.value = true
   try {
     const res = await getConversationList()
     if (res.success && res.data) {
-      // 按更新时间倒序排列
       const list = res.data || []
       list.sort((a, b) => {
         const timeA = a.updateTime ? new Date(a.updateTime).getTime() : 0
@@ -308,7 +496,6 @@ const loadConversations = async () => {
   }
 }
 
-// 新建对话
 const handleCreateConversation = () => {
   if (isStreaming.value) {
     cancelStream()
@@ -318,48 +505,64 @@ const handleCreateConversation = () => {
   tokenUsage.value = null
   errorMessage.value = ''
   lastUserMessage.value = ''
+  resetActiveCards()
   inputRef.value?.focus()
 }
 
-// 选择对话
 const handleSelectConversation = async (conv) => {
   const convId = conv.id
   if (convId === currentConversationId.value) return
-
-  // 取消当前流式请求
   if (isStreaming.value) {
     cancelStream()
   }
-
   currentConversationId.value = convId
   messages.value = []
   tokenUsage.value = null
   errorMessage.value = ''
   lastUserMessage.value = ''
-
-  // 加载该对话的历史消息
   try {
     const res = await getConversationDetail(convId)
     if (res.success && res.data) {
       const detail = res.data
       const messageList = detail.messages || []
-      const historyMessages = messageList.map((msg) => {
+      const historyMessages = []
+      messageList.forEach((msg) => {
         const msgContent = msg.content || ''
         const role = mapRole(msg.role)
-        const { html, components: parsedComponents } = renderMarkdown(msgContent)
-        return {
-          id: msg.id || Date.now() + Math.random(),
-          role: role,
-          content: msgContent,
-          reasoningContent: msg.reasoningContent || '',
-          reasoningCollapsed: true,
-          traceEvents: [],
-          traceCollapsed: true,
-          timestamp: formatTime(msg.createTime),
-          usage: msg.tokenCount ? { totalTokens: msg.tokenCount } : null,
-          streaming: false,
-          components: parsedComponents || [],
-          renderedHtml: html
+        const { html } = renderMarkdown(msgContent)
+        if (role === 'user') {
+          historyMessages.push({
+            id: msg.id || Date.now() + Math.random(),
+            role: 'user',
+            content: msgContent,
+            timestamp: formatTime(msg.createTime)
+          })
+        } else {
+          if (msg.reasoningContent) {
+            historyMessages.push({
+              id: (msg.id || Date.now()) + Math.random(),
+              role: 'ai',
+              cardType: 'reasoning',
+              content: msg.reasoningContent || '',
+              streaming: false,
+              timestamp: '',
+              collapsed: true,
+              label: '',
+              renderedHtml: ''
+            })
+          }
+          historyMessages.push({
+            id: (msg.id || Date.now()) + Math.random() + 1,
+            role: 'ai',
+            cardType: 'text',
+            content: msgContent,
+            data: null,
+            streaming: false,
+            timestamp: formatTime(msg.createTime),
+            collapsed: false,
+            label: '',
+            renderedHtml: html
+          })
         }
       })
       messages.value = historyMessages
@@ -376,20 +579,17 @@ const handleSelectConversation = async (conv) => {
   }
 }
 
-// 将后端 role 映射为前端 role (assistant → ai)
 const mapRole = (role) => {
   if (role === 'assistant' || role === 'ai') return 'ai'
   if (role === 'user') return 'user'
   return role
 }
 
-// 重命名对话
 const handleRenameConversation = async ({ id, newName }) => {
   try {
     const res = await renameConversation(id, newName)
     if (res.success) {
       message.success('重命名成功')
-      // 更新本地列表中的标题
       const conv = conversations.value.find((c) => c.id === id)
       if (conv) {
         conv.title = newName
@@ -403,15 +603,12 @@ const handleRenameConversation = async ({ id, newName }) => {
   }
 }
 
-// 删除对话
 const handleDeleteConversation = async (conv) => {
   try {
     const res = await deleteConversation(conv.id)
     if (res.success) {
       message.success('删除成功')
-      // 从本地列表中移除
       conversations.value = conversations.value.filter((c) => c.id !== conv.id)
-      // 如果删除的是当前对话，切回空状态
       if (currentConversationId.value === conv.id) {
         currentConversationId.value = null
         messages.value = []
@@ -430,20 +627,17 @@ const handleDeleteConversation = async (conv) => {
 
 // ===================== 消息发送 =====================
 
-// 发送快捷提示
 const sendQuickPrompt = (prompt) => {
   inputMessage.value = prompt
   sendMessage()
 }
 
-// 发送消息
 const sendMessage = async () => {
   const text = inputMessage.value.trim()
   if (!text || isStreaming.value) return
 
   lastUserMessage.value = text
 
-  // 添加用户消息
   const userMsg = {
     id: Date.now(),
     role: 'user',
@@ -452,24 +646,7 @@ const sendMessage = async () => {
   }
   messages.value.push(userMsg)
 
-  // 添加 AI 占位消息
-  const aiMsg = {
-    id: Date.now() + 1,
-    role: 'ai',
-    content: '',
-    reasoningContent: '',
-    reasoningCollapsed: false,
-    traceEvents: [],
-    traceCollapsed: false,
-    timestamp: '',
-    streaming: true,
-    toolStatus: null,
-    toolMessage: '',
-    usage: null,
-    components: [],
-    renderedHtml: ''
-  }
-  messages.value.push(aiMsg)
+  resetActiveCards()
 
   inputMessage.value = ''
   isStreaming.value = true
@@ -477,7 +654,6 @@ const sendMessage = async () => {
   tokenUsage.value = null
   shouldAutoScroll.value = true
 
-  // 重置输入框高度
   if (inputRef.value) {
     inputRef.value.style.height = 'auto'
   }
@@ -485,19 +661,6 @@ const sendMessage = async () => {
   await nextTick()
   scrollToBottom()
 
-  // 如果是新对话，先创建对话
-  if (!currentConversationId.value) {
-    try {
-      const createRes = await createConversation()
-      if (createRes.success && createRes.data) {
-        currentConversationId.value = createRes.data.id
-      }
-    } catch (err) {
-      console.error('创建对话失败:', err)
-    }
-  }
-
-  // 发起 SSE 流式请求
   streamController.value = new AbortController()
 
   try {
@@ -509,271 +672,239 @@ const sendMessage = async () => {
       {
         signal: streamController.value.signal,
         onChunk: (chunk) => {
-          handleChunk(chunk, aiMsg)
+          handleChunk(chunk)
         }
       }
     )
 
-    // 流结束后的收尾
-    if (aiMsg.streaming) {
-      if (streamRenderTimer) {
-        clearTimeout(streamRenderTimer)
-        streamRenderTimer = null
-      }
-      aiMsg.streaming = false
-      aiMsg.timestamp = formatTime(Date.now())
-      if (!aiMsg.content && !aiMsg.reasoningContent) {
-        aiMsg.content = '暂时没有收到回复，请稍后再试。'
-      }
-      if (aiMsg.content) {
-        const { html, components: parsedComponents } = renderMarkdown(aiMsg.content)
-        aiMsg.renderedHtml = html
-        if (parsedComponents && parsedComponents.length > 0) {
-          aiMsg.components = [...aiMsg.components, ...parsedComponents]
-        }
-      }
+    if (streamRenderTimer) {
+      clearTimeout(streamRenderTimer)
+      streamRenderTimer = null
+    }
+    finalizeAllCards()
+
+    if (!messages.value.some(m => m.role === 'ai')) {
+      createCard('text', {
+        content: '暂时没有收到回复，请稍后再试。',
+        streaming: false,
+        timestamp: formatTime(Date.now())
+      })
+      const textCard = activeCards?.text
+      if (textCard) renderCardMarkdown(textCard)
     }
 
-    // 刷新对话列表
     loadConversations()
   } catch (err) {
     if (err.name !== 'AbortError') {
-      aiMsg.streaming = false
-      aiMsg.timestamp = formatTime(Date.now())
-      if (!aiMsg.content) {
-        const errMsg = err.message || '服务暂时不可用，请稍后再试。'
-        aiMsg.content = errMsg
+      const errMsg = err.message || '服务暂时不可用，请稍后再试。'
+      const card = createCard('text', {
+        content: errMsg,
+        streaming: false,
+        timestamp: formatTime(Date.now())
+      })
+      renderCardMarkdown(card)
 
-        // 判断是否为限流错误
-        if (errMsg.includes('429') || errMsg.includes('限流') || errMsg.includes('rate limit')) {
-          errorMessage.value = '请求过于频繁，请稍后再试。'
-        } else if (errMsg.includes('500') || errMsg.includes('服务器')) {
-          errorMessage.value = '服务器繁忙，请稍后再试。'
-        } else if (errMsg.includes('网络') || errMsg.includes('fetch')) {
-          errorMessage.value = '网络连接异常，请检查网络后重试。'
-        }
-      }
-      // 错误情况下也生成 renderedHtml
-      if (aiMsg.content && !aiMsg.renderedHtml) {
-        const { html } = renderMarkdown(aiMsg.content)
-        aiMsg.renderedHtml = html
+      if (errMsg.includes('429') || errMsg.includes('限流') || errMsg.includes('rate limit')) {
+        errorMessage.value = '请求过于频繁，请稍后再试。'
+      } else if (errMsg.includes('500') || errMsg.includes('服务器')) {
+        errorMessage.value = '服务器繁忙，请稍后再试。'
+      } else if (errMsg.includes('网络') || errMsg.includes('fetch')) {
+        errorMessage.value = '网络连接异常，请检查网络后重试。'
       }
     }
   } finally {
     isStreaming.value = false
     streamController.value = null
+    resetActiveCards()
     await nextTick()
     scrollToBottom()
   }
 }
 
-// 处理 SSE 数据块
-const appendTraceChunk = (aiMsg, chunk) => {
-  if (!aiMsg.traceEvents) {
-    aiMsg.traceEvents = []
-  }
-  aiMsg.traceEvents.push({
-    stage: chunk.traceStage || chunk.agentType || 'AGENT',
-    type: chunk.traceType || chunk.eventType || 'CONTENT',
-    label: chunk.traceLabel || chunk.agentType || chunk.traceStage || 'Agent',
-    delta: chunk.delta || '',
-    reasoningDelta: chunk.reasoningDelta || ''
-  })
-}
+// ===================== 卡片式 SSE 数据块处理 =====================
+//
+// 每条 SSE 消息依据 eventType 做分类拆分，四种字段类别绑定不同渲染：
+//   eventType + reasoningDelta      → reasoning 卡片（灰色可折叠推理框）
+//   eventType + delta + contentStyle → text 卡片（Markdown 气泡 + 差异化 CSS）
+//   eventType + traceLabel + delta   → tool / stage 卡片（工具执行 / 流水线）
+//   eventType + componentData        → train_card / order_card（结构化数据卡片）
+// 不同类型内容不可混在同一文本区块
 
-const buildTraceGroups = (msg) => {
-  const groups = []
-  const groupIndex = new Map()
-  for (const event of msg.traceEvents || []) {
-    const key = event.stage || event.label || 'AGENT'
-    let group = groupIndex.get(key)
-    if (!group) {
-      group = {
-        key,
-        label: event.label || key,
-        content: '',
-        reasoning: '',
-        result: '',
-        status: []
-      }
-      groupIndex.set(key, group)
-      groups.push(group)
-    }
-    const type = event.type || 'CONTENT'
-    if (type === 'REASONING') {
-      group.reasoning += event.reasoningDelta || event.delta || ''
-    } else if (type === 'RESULT') {
-      group.result += event.delta || ''
-    } else if (type === 'STATUS' || type === 'TOOL_START' || type === 'TOOL_END') {
-      if (event.delta) {
-        group.status.push(event.delta)
-      }
-    } else {
-      group.content += event.delta || ''
-    }
-  }
-  return groups
-}
+const handleChunk = (chunk) => {
+  console.log('[AIChunk] eventType:', chunk.eventType, 'delta:', chunk.delta?.substring(0, 60), 'reasoningDelta:', chunk.reasoningDelta?.substring(0, 60), 'traceLabel:', chunk.traceLabel, 'traceType:', chunk.traceType, 'contentStyle:', chunk.contentStyle)
 
-const handleChunk = (chunk, aiMsg) => {
-  // 更新 conversationId（服务端返回时使用）
   if (chunk.sessionId && !currentConversationId.value) {
     currentConversationId.value = chunk.sessionId
   }
 
-  if (chunk.eventType === 'TRACE' || chunk.contentType === 'trace' || chunk.eventType === 'TOOL_START' || chunk.eventType === 'TOOL_END') {
-    appendTraceChunk(aiMsg, chunk)
-    if (chunk.eventType === 'TOOL_START') {
-      aiMsg.toolStatus = 'calling'
-      aiMsg.toolMessage = chunk.delta || '正在执行 Agent 任务...'
-    } else if (chunk.eventType === 'TOOL_END') {
-      aiMsg.toolStatus = 'done'
-      aiMsg.toolMessage = chunk.delta || '任务完成，正在整理回复...'
-    } else if (chunk.traceType === 'STATUS' && chunk.delta) {
-      aiMsg.toolStatus = 'calling'
-      aiMsg.toolMessage = chunk.delta
+  const eventType = chunk.eventType
+
+  if (!showProcess.value && PROCESS_EVENT_TYPES.includes(eventType)) {
+    return
+  }
+
+  // ── STAGE：eventType + traceLabel + delta（阶段流水线卡片）──
+  if (eventType === 'STAGE') {
+    const displayLabel = resolveStageLabel(chunk.traceLabel) || chunk.delta || '处理中'
+    addStageStep(displayLabel)
+    if (shouldAutoScroll.value) nextTick(() => scrollToBottom())
+    return
+  }
+
+  // ── TRACE：分流 reasoningDelta 和 status delta ──
+  if (eventType === 'TRACE') {
+    if (chunk.reasoningDelta) {
+      const card = getOrCreateCard('reasoning', { collapsed: false })
+      card.content += chunk.reasoningDelta
+      if (chunk.traceLabel && !card.label) {
+        card.label = resolveStageLabel(chunk.traceLabel) || chunk.traceLabel
+      }
     }
-    return
-  }
-
-  // 处理错误事件
-  if (chunk.eventType === 'ERROR' || chunk.error) {
-    const errText = chunk.error || chunk.answer || '服务暂时不可用，请稍后再试。'
-    if (errText.includes('会话不存在') || errText.includes('无权访问')) {
-      message.error('该对话已失效，已自动移除')
-      conversations.value = conversations.value.filter((c) => c.id !== currentConversationId.value)
-      currentConversationId.value = null
-      messages.value = messages.value.filter((m) => m.id !== aiMsg.id)
-      return
+    if (chunk.traceType === 'STATUS' && chunk.delta) {
+      const card = getOrCreateCard('tool')
+      card.content = chunk.delta
+      card.toolStatus = 'running'
+      if (chunk.traceLabel && !card.label) {
+        card.label = resolveStageLabel(chunk.traceLabel) || chunk.traceLabel
+      }
     }
-    aiMsg.content = errText
-    aiMsg.streaming = false
-    aiMsg.toolStatus = null
+    if (shouldAutoScroll.value) nextTick(() => scrollToBottom())
     return
   }
 
-  // 处理重试提示事件（模型超时自动切换节点）
-  if (chunk.eventType === 'RETRYING') {
-    aiMsg.toolStatus = 'calling'
-    aiMsg.toolMessage = chunk.delta || '当前线路繁忙，正在切换备用节点...'
+  // ── TOOL_START / TOOL_END：eventType + delta + traceLabel（工具执行卡片）──
+  if (eventType === 'TOOL_START') {
+    const agentLabel = chunk.traceLabel || chunk.agentType || '工具调用'
+    const card = getOrCreateCard('tool', { label: agentLabel })
+    card.content = chunk.delta || '正在执行...'
+    card.toolStatus = 'running'
+    if (shouldAutoScroll.value) nextTick(() => scrollToBottom())
     return
   }
 
-  // 处理工具调用开始
-  if (chunk.eventType === 'TOOL_START') {
-    aiMsg.toolStatus = 'calling'
-    aiMsg.toolMessage = chunk.toolName
-      ? `正在调用：${chunk.toolName}...`
-      : '正在查询相关信息...'
+  if (eventType === 'TOOL_END') {
+    const card = getOrCreateCard('tool')
+    card.toolStatus = 'done'
+    if (chunk.delta) {
+      card.content = chunk.delta
+    }
+    if (shouldAutoScroll.value) nextTick(() => scrollToBottom())
+    return
   }
 
-  // 处理工具调用结束
-  if (chunk.eventType === 'TOOL_END') {
-    aiMsg.toolStatus = 'done'
-    aiMsg.toolMessage = '查询完成，正在整理回复...'
+  // ── RETRYING：eventType + delta（工具卡片显示重试消息）──
+  if (eventType === 'RETRYING') {
+    const card = getOrCreateCard('tool')
+    card.content = chunk.delta || '当前线路繁忙，正在切换备用节点...'
+    card.toolStatus = 'running'
+    if (shouldAutoScroll.value) nextTick(() => scrollToBottom())
+    return
   }
 
-  // 处理 COMPONENT 事件（结构化组件数据）
-  if (chunk.eventType === 'COMPONENT' || chunk.contentType === 'component') {
+  // ── COMPONENT：eventType + componentData（结构化数据卡片）──
+  if (eventType === 'COMPONENT') {
     if (chunk.componentType && chunk.componentData) {
-      aiMsg.components.push({
-        id: `comp-${chunk.componentType}-${aiMsg.components.length}`,
-        type: chunk.componentType,
-        data: chunk.componentData
+      const cType = chunk.componentType === 'train_card' ? 'train_card'
+        : chunk.componentType === 'order_card' ? 'order_card'
+        : chunk.componentType
+      createCard(cType, {
+        data: chunk.componentData,
+        streaming: chunk.status === 'loading'
       })
     } else if (chunk.delta) {
-      // 尝试从 delta JSON 解析组件数据
       try {
         const compData = typeof chunk.delta === 'string' ? JSON.parse(chunk.delta) : chunk.delta
         if (compData.type && compData.data) {
-          const compType = compData.type === 'train_card' ? 'train_card' : (compData.type === 'order_card' ? 'order_card' : compData.type)
-          aiMsg.components.push({
-            id: `comp-${compType}-${aiMsg.components.length}`,
-            type: compType,
-            data: compData.data
-          })
+          const cType = compData.type === 'train_card' ? 'train_card'
+            : compData.type === 'order_card' ? 'order_card'
+            : compData.type
+          createCard(cType, { data: compData.data })
         }
-      } catch (e) {
-        // 忽略解析错误
+      } catch (e) { /* ignore */ }
+    }
+    if (shouldAutoScroll.value) nextTick(() => scrollToBottom())
+    return
+  }
+
+  // ── ERROR：eventType + error（一次性错误气泡）──
+  if (eventType === 'ERROR' || chunk.error) {
+    const errText = chunk.error || chunk.answer || '服务暂时不可用，请稍后再试。'
+    if (errText.includes('会话不存在') || errText.includes('无权访问')) {
+      message.error('该对话已失效，已自动移除')
+      conversations.value = conversations.value.filter((c) => c.id === currentConversationId.value)
+      currentConversationId.value = null
+      messages.value = messages.value.filter((m) => m.role !== 'ai')
+      return
+    }
+    createCard('text', {
+      content: errText,
+      streaming: false,
+      timestamp: formatTime(Date.now()),
+      contentStyle: 'error'
+    })
+    const textCard = activeCards?.text
+    if (textCard) renderCardMarkdown(textCard)
+    if (shouldAutoScroll.value) nextTick(() => scrollToBottom())
+    return
+  }
+
+  // ── CHAT_CHUNK / ASK_USER：严格区分推理和文本内容 ──
+  // reasoningDelta → 推理卡片，delta + contentStyle → 文本气泡
+  if (eventType === 'CHAT_CHUNK' || eventType === 'ASK_USER') {
+    if (chunk.reasoningDelta) {
+      const rCard = getOrCreateCard('reasoning', { collapsed: false })
+      rCard.content += chunk.reasoningDelta
+      if (chunk.traceLabel && !rCard.label) {
+        rCard.label = resolveStageLabel(chunk.traceLabel) || chunk.traceLabel
       }
     }
-  }
-
-  // 处理流式文本增量（排除 component delta）
-  if (chunk.delta && chunk.eventType !== 'COMPONENT' && chunk.contentType !== 'component') {
-    aiMsg.content += chunk.delta
-    if (aiMsg.streaming) {
-      scheduleStreamRender(aiMsg)
+    if (chunk.delta) {
+      const card = getOrCreateCard('text')
+      card.content += chunk.delta
+      if (chunk.contentStyle && !card.contentStyle) {
+        card.contentStyle = chunk.contentStyle
+      }
+      scheduleCardRender(card)
     }
+    if (shouldAutoScroll.value) nextTick(() => scrollToBottom())
+    return
   }
 
-  // 处理推理增量
-  if (chunk.reasoningDelta) {
-    aiMsg.reasoningContent += chunk.reasoningDelta
-  }
-
-  // 处理完成事件
-  if (chunk.eventType === 'DONE' || chunk.done) {
-    // 清除流式渲染定时器，立即做最终渲染
+  // ── DONE：结束所有流式卡片 ──
+  if (eventType === 'DONE' || chunk.done) {
     if (streamRenderTimer) {
       clearTimeout(streamRenderTimer)
       streamRenderTimer = null
     }
-    aiMsg.streaming = false
-    aiMsg.toolStatus = null
-    aiMsg.timestamp = formatTime(Date.now())
-    // 流结束后自动折叠推理过程，突出最终回答
-    if (aiMsg.reasoningContent) {
-      aiMsg.reasoningCollapsed = true
+    if (chunk.answer && !(activeCards?.text?.content)) {
+      const card = getOrCreateCard('text', { content: chunk.answer })
+      renderCardMarkdown(card)
     }
-
-    // 如果 answer 代替 delta 给了完整回复，直接赋值
-    if (!aiMsg.content && chunk.answer) {
-      aiMsg.content = chunk.answer
-    }
-
-    // 最终渲染：完整 Markdown
-    if (aiMsg.content) {
-      const { html, components: parsedComponents } = renderMarkdown(aiMsg.content)
-      aiMsg.renderedHtml = html
-      if (parsedComponents && parsedComponents.length > 0) {
-        aiMsg.components = [...aiMsg.components, ...parsedComponents]
-      }
-    }
-
-    // 记录 Token 用量
+    finalizeAllCards()
     if (chunk.usage) {
-      aiMsg.usage = chunk.usage
       tokenUsage.value = chunk.usage
     }
-  }
-
-  // 自动滚动
-  if (shouldAutoScroll.value) {
-    nextTick(() => scrollToBottom())
+    if (shouldAutoScroll.value) nextTick(() => scrollToBottom())
+    return
   }
 }
 
 // ===================== 滚动控制 =====================
 
-// 滚动到底部
 const scrollToBottom = () => {
   if (messagesContainer.value) {
     messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
   }
 }
 
-// 监听用户滚动，判断是否在底部
 const onScroll = () => {
   if (!messagesContainer.value) return
   const { scrollTop, scrollHeight, clientHeight } = messagesContainer.value
-  // 距离底部小于 60px 认为在底部
   shouldAutoScroll.value = scrollHeight - scrollTop - clientHeight < 60
 }
 
 // ===================== 输入框 =====================
 
-// 自动调整输入框高度
 const autoResize = () => {
   const el = inputRef.value
   if (!el) return
@@ -785,47 +916,45 @@ const autoResize = () => {
   el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden'
 }
 
-// Shift+Enter 换行
 const newline = () => {
-  // textarea 默认行为就是换行，不需要额外处理
   autoResize()
 }
 
 // ===================== 其他功能 =====================
 
-// 取消流式请求
 const cancelStream = () => {
   if (streamController.value) {
     streamController.value.abort()
     streamController.value = null
   }
   isStreaming.value = false
-
-  // 找到最后一条 AI 消息，标记为非流式
-  const lastAiMsg = [...messages.value].reverse().find((m) => m.role === 'ai')
-  if (lastAiMsg && lastAiMsg.streaming) {
-    lastAiMsg.streaming = false
-    if (!lastAiMsg.content) {
-      lastAiMsg.content = '已取消发送。'
-    }
-    // 取消后渲染 Markdown
-    if (lastAiMsg.content && !lastAiMsg.renderedHtml) {
-      const { html, components: parsedComponents } = renderMarkdown(lastAiMsg.content)
-      lastAiMsg.renderedHtml = html
-      if (parsedComponents && parsedComponents.length > 0) {
-        lastAiMsg.components = [...lastAiMsg.components, ...parsedComponents]
+  const streamingCards = messages.value.filter(m => m.role === 'ai' && m.streaming)
+  if (streamingCards.length > 0) {
+    streamingCards.forEach(card => {
+      card.streaming = false
+      if (card.cardType === 'tool') {
+        card.toolStatus = 'done'
       }
-    }
+      if (card.cardType === 'text' && card.content && !card.renderedHtml) {
+        renderCardMarkdown(card)
+      }
+    })
+  } else {
+    const card = createCard('text', {
+      content: '已取消发送。',
+      streaming: false,
+      timestamp: formatTime(Date.now())
+    })
+    renderCardMarkdown(card)
   }
+  resetActiveCards()
 }
 
-// 复制消息内容
 const copyMessage = async (content) => {
   try {
     await navigator.clipboard.writeText(content)
     message.success('已复制到剪贴板')
   } catch (err) {
-    // 降级方案
     const textarea = document.createElement('textarea')
     textarea.value = content
     textarea.style.position = 'fixed'
@@ -838,22 +967,77 @@ const copyMessage = async (content) => {
   }
 }
 
-// 重试最后一条消息
 const retryLastMessage = () => {
   if (!lastUserMessage.value) return
   errorMessage.value = ''
-  // 移除最后一条失败的AI消息
-  const lastIdx = messages.value.length - 1
-  if (lastIdx >= 0 && messages.value[lastIdx].role === 'ai') {
-    messages.value.splice(lastIdx, 1)
+  resetActiveCards()
+  while (messages.value.length > 0 && messages.value[messages.value.length - 1].role === 'ai') {
+    messages.value.pop()
   }
   inputMessage.value = lastUserMessage.value
   sendMessage()
 }
 
+// ===================== 阶段分隔线逻辑 =====================
+
+const detectPhaseType = (current, previous) => {
+  if (previous.role === 'user') return PHASE_TYPE.DEFAULT
+  if (current.role === 'user') return null
+
+  if (previous.cardType === 'stage' && (current.cardType === 'tool' || current.cardType === 'reasoning')) {
+    return PHASE_TYPE.THINKING
+  }
+  if ((previous.cardType === 'tool' || previous.cardType === 'stage') && current.cardType === 'reasoning') {
+    return PHASE_TYPE.THINKING
+  }
+  if ((previous.cardType === 'tool' || previous.cardType === 'reasoning') && current.cardType === 'text') {
+    return PHASE_TYPE.REPLY
+  }
+  if (previous.cardType === 'text' && (current.cardType === 'train_card' || current.cardType === 'order_card')) {
+    return PHASE_TYPE.CARD
+  }
+  if (previous.cardType === 'reasoning' && current.cardType === 'tool') {
+    return PHASE_TYPE.TOOL
+  }
+
+  // 任何 AI 卡片在文本之前，显示阶段转换
+  if (current.cardType === 'text' && previous.role === 'ai') {
+    if (previous.cardType === 'stage') return PHASE_TYPE.REPLY
+    return PHASE_TYPE.DEFAULT
+  }
+
+  // stage 之前如果有 AI 消息，显示默认
+  if (current.cardType === 'stage' && previous.role === 'ai') {
+    return PHASE_TYPE.DEFAULT
+  }
+
+  return null
+}
+
+const shouldShowDivider = (current, previous) => {
+  if (previous.role === 'user') return true
+  if (current.role === 'user') return previous.role === 'ai'
+  if (previous.role === 'ai' && current.role === 'ai') {
+    const type = detectPhaseType(current, previous)
+    if (type) return true
+  }
+  return false
+}
+
+const getDividerPhaseType = (current, previous) => {
+  return detectPhaseType(current, previous) || 'default'
+}
+
+const getDividerLabel = (current, previous) => {
+  const phaseType = detectPhaseType(current, previous)
+  if (phaseType && PHASE_DEFS[phaseType]) {
+    return PHASE_DEFS[phaseType].label
+  }
+  return ''
+}
+
 // ===================== 工具函数 =====================
 
-// 格式化时间
 const formatTime = (time) => {
   if (!time) return ''
   const d = dayjs(time)
@@ -869,17 +1053,15 @@ const formatTime = (time) => {
 </script>
 
 <style lang="scss" scoped>
-// ===================== 整体布局 =====================
 .ai-chat-page {
   display: flex;
-  height: calc(100vh - 64px - 42px); // 减去顶部导航和 margin
+  height: calc(100vh - 64px - 42px);
   background: #fff;
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.035);
 }
 
-// ===================== 右侧聊天区域 =====================
 .chat-main {
   flex: 1;
   display: flex;
@@ -899,6 +1081,12 @@ const formatTime = (time) => {
   height: 72px;
 }
 
+.chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .chat-title {
   font-size: 20px;
   line-height: 24px;
@@ -913,7 +1101,6 @@ const formatTime = (time) => {
   color: #6f747c;
 }
 
-// ===================== 消息区域 =====================
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -932,7 +1119,6 @@ const formatTime = (time) => {
   }
 }
 
-// 空状态
 .empty-chat {
   display: flex;
   flex-direction: column;
@@ -987,7 +1173,6 @@ const formatTime = (time) => {
   }
 }
 
-// 消息行
 .message-row {
   display: flex;
   flex-direction: column;
@@ -1003,184 +1188,432 @@ const formatTime = (time) => {
   }
 }
 
+// ===================== 阶段分隔标题 =====================
+.phase-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0 8px;
+  padding: 10px 16px;
+  border-left: 4px solid #1677ff;
+  background: linear-gradient(135deg, #f0f7ff 0%, #f5f9ff 100%);
+  border-radius: 0 10px 10px 0;
+  box-shadow: 0 2px 8px rgba(22, 119, 255, 0.1);
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: -14px;
+    bottom: auto;
+    width: 0;
+    height: 0;
+  }
+
+  &.phase-tool {
+    border-left-color: #fa8c16;
+    background: linear-gradient(135deg, #fffaf0 0%, #fff7e6 100%);
+    box-shadow: 0 2px 8px rgba(250, 140, 22, 0.1);
+  }
+
+  &.phase-reply {
+    border-left-color: #52c41a;
+    background: linear-gradient(135deg, #f6ffed 0%, #f0faea 100%);
+    box-shadow: 0 2px 8px rgba(82, 196, 26, 0.1);
+  }
+
+  &.phase-card {
+    border-left-color: #13c2c2;
+    background: linear-gradient(135deg, #e6fffb 0%, #f0fcfa 100%);
+    box-shadow: 0 2px 8px rgba(19, 194, 194, 0.1);
+  }
+}
+
+.phase-icon {
+  display: inline-flex;
+  align-items: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  color: #1677ff;
+
+  .phase-tool & { color: #fa8c16; }
+  .phase-reply & { color: #52c41a; }
+  .phase-card & { color: #13c2c2; }
+}
+
+.phase-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a3352;
+  letter-spacing: 0.3px;
+
+  .phase-tool & { color: #5c3a00; }
+  .phase-reply & { color: #1f3a12; }
+  .phase-card & { color: #00474f; }
+}
+
 .message-body {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
-// 工具调用指示器
-.tool-indicator {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  margin-bottom: 6px;
-  font-size: 12px;
-  color: #888;
-  background: #f8f9fb;
-  border-radius: 6px;
-  border: 1px solid #eef0f4;
-
-  .anticon {
-    font-size: 13px;
-  }
-}
-
-// 消息气泡
 .message-bubble {
   padding: 14px 20px;
   font-size: 15px;
   line-height: 1.6;
   word-break: break-word;
   white-space: pre-wrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 
   .ai & {
     color: #1f2328;
-    background: #f3f3f3;
-    border-radius: 4px 18px 18px 18px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 1px solid #e8e8e8;
+    border-left: 3px solid #1677ff;
+    border-radius: 0 16px 16px 16px;
   }
 
   .user & {
     color: #fff;
-    background: #050505;
-    border-radius: 18px 4px 18px 18px;
+    background: linear-gradient(135deg, #1677ff 0%, #0958d9 100%);
+    border-radius: 16px 0 16px 16px;
     font-weight: 500;
+    box-shadow: 0 2px 6px rgba(22, 119, 255, 0.25);
   }
 }
 
-// 推理过程（可折叠）
-.reasoning-block {
-  margin-bottom: 10px;
-  background: #fafbfc;
-  border: 1px solid #ececec;
-  border-radius: 8px;
+.ai .msg-style-greeting {
+  background: linear-gradient(135deg, #e6f4ff 0%, #f0f5ff 100%);
+  border: 1px solid #bae0ff;
+  font-size: 15px;
+  color: #1a3352;
+}
+
+.ai .msg-style-clarification {
+  background: #fffbe6;
+  border: 1px solid #ffe58f;
+  border-left: 3px solid #faad14;
+  color: #5c4a00;
+}
+
+.ai .msg-style-summary {
+  background: #f6ffed;
+  border: 1px solid #b7eb8f;
+  color: #1f3a12;
+}
+
+.ai .msg-style-suggestion {
+  background: #f0f5ff;
+  border: 1px solid #adc6ff;
+  border-left: 3px solid #597ef7;
+  color: #1a2852;
+  font-size: 14px;
+}
+
+.ai .msg-style-info {
+  background: #e6f7ff;
+  border: 1px solid #91d5ff;
+  color: #1a3a52;
+}
+
+.ai .msg-style-success {
+  background: #f6ffed;
+  border: 1px solid #95de64;
+  border-left: 3px solid #52c41a;
+  color: #1f3a12;
+}
+
+.ai .msg-style-warning {
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+  border-left: 3px solid #fa8c16;
+  color: #5c3a00;
+}
+
+.ai .msg-style-error {
+  background: #fff2f0;
+  border: 1px solid #ffccc7;
+  border-left: 3px solid #ff4d4f;
+  color: #5c0011;
+}
+
+// ===================== 阶段流水线卡片 =====================
+.card-stage-pipeline {
+  margin: 4px 0;
+  background: linear-gradient(135deg, #f0f5ff 0%, #f5f9ff 100%);
+  border: 1px solid #d6e4ff;
+  border-left: 4px solid #1677ff;
+  border-radius: 0 10px 10px 0;
+  padding: 12px 16px;
+  box-shadow: 0 1px 4px rgba(22, 119, 255, 0.06);
+}
+
+.stage-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #d6e4ff;
+}
+
+.stage-header-icon {
+  font-size: 15px;
+  color: #1677ff;
+}
+
+.stage-header-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1677ff;
+}
+
+.stage-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stage-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0 5px 4px;
+  font-size: 12px;
+  line-height: 18px;
+  color: #8c8c8c;
+  transition: color 0.25s ease;
+
+  &.active {
+    color: #1677ff;
+    font-weight: 600;
+  }
+
+  &.done {
+    color: #52c41a;
+  }
+
+  .step-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #e8e8e8;
+    transition: background 0.25s ease, box-shadow 0.25s ease;
+  }
+
+  &.active .step-dot {
+    background: #1677ff;
+    box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.2);
+    animation: pulse-dot 1.6s infinite;
+  }
+
+  &.done .step-dot {
+    background: #52c41a;
+  }
+
+  .step-spin {
+    font-size: 12px;
+    color: #fff;
+  }
+
+  .step-check {
+    font-size: 12px;
+    color: #fff;
+  }
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba(22, 119, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(22, 119, 255, 0.05);
+  }
+}
+
+// ===================== 工具执行卡片 =====================
+.card-tool {
+  margin: 4px 0;
+  background: linear-gradient(135deg, #fffdf0 0%, #fffbe6 100%);
+  border: 1px solid #ffe58f;
+  border-left: 4px solid #fa8c16;
+  border-radius: 0 10px 10px 0;
+  padding: 0;
+  box-shadow: 0 1px 4px rgba(250, 140, 22, 0.06);
   overflow: hidden;
+
+  &.done {
+    background: linear-gradient(135deg, #f6ffed 0%, #f0faea 100%);
+    border-color: #b7eb8f;
+    border-left-color: #52c41a;
+    box-shadow: 0 1px 4px rgba(82, 196, 26, 0.06);
+  }
+}
+
+.tool-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: rgba(250, 140, 22, 0.05);
+
+  .card-tool.done & {
+    background: rgba(82, 196, 26, 0.05);
+  }
+}
+
+.tool-card-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.tool-spin {
+  font-size: 14px;
+  color: #fa8c16;
+}
+
+.tool-done-icon {
+  font-size: 14px;
+  color: #52c41a;
+}
+
+.tool-agent-name {
+  font-weight: 600;
+  color: #5c3a00;
+
+  .card-tool.done & {
+    color: #3f6600;
+  }
+}
+
+.tool-badge {
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 12px;
+  flex-shrink: 0;
+
+  &.running {
+    color: #fff;
+    background: #fa8c16;
+    animation: badge-pulse 1.5s infinite;
+  }
+
+  &.done {
+    color: #fff;
+    background: #52c41a;
+  }
+}
+
+@keyframes badge-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.tool-card-body {
+  padding: 10px 16px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #8b6914;
+  background: rgba(250, 173, 20, 0.04);
+  white-space: pre-wrap;
+  word-break: break-word;
+
+  .card-tool.done & {
+    color: #5b7a2e;
+    background: rgba(82, 196, 26, 0.03);
+  }
+}
+
+.waiting-row {
+  align-self: flex-start;
+  padding: 8px 0;
+}
+
+.waiting-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 18px;
+}
+
+.card-reasoning {
+  margin: 4px 0;
+  background: linear-gradient(135deg, #fafbfc 0%, #f5f7fa 100%);
+  border: 1px solid #d9d9d9;
+  border-left: 4px solid #8b9199;
+  border-radius: 0 10px 10px 0;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .reasoning-header {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 10px;
+  padding: 9px 14px;
   cursor: pointer;
   user-select: none;
   font-size: 12px;
-  color: #666;
+  font-weight: 500;
+  color: #8b9199;
+  background: rgba(0, 0, 0, 0.02);
   transition: background-color 0.15s ease;
 
   &:hover {
-    background: #f0f2f5;
+    background: rgba(0, 0, 0, 0.05);
   }
 
   .reasoning-chevron {
     font-size: 10px;
     color: #999;
-    transition: transform 0.15s ease;
   }
 
-  .reasoning-label {
-    font-weight: 500;
+  .reasoning-bulb {
+    font-size: 13px;
+    color: #8b9199;
+    margin-left: 2px;
+  }
+}
+
+.reasoning-badge {
+  margin-left: auto;
+  padding: 1px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 10px;
+  flex-shrink: 0;
+
+  &.live {
+    color: #1677ff;
+    background: #e6f4ff;
+    animation: badge-pulse 1.5s infinite;
+  }
+
+  &.done {
+    color: #8c8c8c;
+    background: #f0f0f0;
   }
 }
 
 .reasoning-content {
-  padding: 8px 12px 10px 22px;
-  border-top: 1px solid #ececec;
-  color: #888;
+  padding: 10px 14px 12px 28px;
+  border-top: 1px solid #e8e8e8;
+  color: #6b7280;
   font-size: 13px;
-  line-height: 1.6;
+  line-height: 1.7;
   font-style: italic;
   white-space: pre-wrap;
   word-break: break-word;
-}
-
-// 消息正文
-.trace-block {
-  margin-bottom: 10px;
-  background: #f7f8fa;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.trace-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  cursor: pointer;
-  user-select: none;
-  font-size: 12px;
-  color: #4b5563;
-  transition: background-color 0.15s ease;
-
-  &:hover {
-    background: #eef2f7;
-  }
-
-  .trace-chevron {
-    font-size: 10px;
-    color: #8a8f98;
-  }
-
-  .trace-label {
-    font-weight: 600;
-  }
-}
-
-.trace-content {
-  padding: 8px 10px 10px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.trace-group + .trace-group {
-  margin-top: 10px;
-}
-
-.trace-group-title {
-  margin-bottom: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #374151;
-}
-
-.trace-section {
-  margin: 4px 0 0;
-  padding: 8px;
-  max-height: 180px;
-  overflow: auto;
-  background: #fff;
-  border: 1px solid #eceff3;
-  border-radius: 6px;
-  color: #4b5563;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 12px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-}
-
-.trace-reasoning {
-  color: #7c3aed;
-}
-
-.trace-result {
-  color: #047857;
-}
-
-.trace-status {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
-
-  span {
-    padding: 2px 6px;
-    border-radius: 4px;
-    background: #eef2f7;
-    color: #6b7280;
-    font-size: 12px;
-  }
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .message-text {
@@ -1188,59 +1621,40 @@ const formatTime = (time) => {
   word-break: break-word;
 }
 
-// ===================== Markdown 渲染样式 =====================
+.streaming-raw {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #374151;
+  background: rgba(22, 119, 255, 0.02);
+  padding: 4px 0;
+}
+
 .markdown-body {
   word-break: break-word;
   line-height: 1.7;
-  // 流式输出时内容增长的平滑过渡
   min-height: 0;
 
-  // 段落
   p {
     margin: 0 0 8px 0;
-
-    &:last-child {
-      margin-bottom: 0;
-    }
+    &:last-child { margin-bottom: 0; }
   }
 
-  // 加粗
-  strong {
-    font-weight: 600;
-    color: #1a1a1a;
+  strong { font-weight: 600; color: #1a1a1a; }
+  em { font-style: italic; }
+
+  s, del { text-decoration: line-through; color: #999; }
+
+  a { color: #1677ff; text-decoration: none;
+    &:hover { text-decoration: underline; }
   }
 
-  // 斜体
-  em {
-    font-style: italic;
-  }
-
-  // 删除线
-  s, del {
-    text-decoration: line-through;
-    color: #999;
-  }
-
-  // 链接
-  a {
-    color: #1677ff;
-    text-decoration: none;
-
-    &:hover {
-      text-decoration: underline;
-    }
-  }
-
-  // 标题
   h1, h2, h3, h4, h5, h6 {
     margin: 12px 0 6px 0;
     font-weight: 600;
     line-height: 1.4;
     color: #1a1a1a;
-
-    &:first-child {
-      margin-top: 0;
-    }
+    &:first-child { margin-top: 0; }
   }
 
   h1 { font-size: 1.4em; }
@@ -1248,27 +1662,18 @@ const formatTime = (time) => {
   h3 { font-size: 1.1em; }
   h4 { font-size: 1.05em; }
 
-  // 列表
   ul, ol {
     margin: 4px 0;
     padding-left: 20px;
-
-    li {
-      margin-bottom: 2px;
-    }
+    li { margin-bottom: 2px; }
   }
 
-  ul {
-    list-style: disc;
-
+  ul { list-style: disc;
     ul { list-style: circle; }
   }
 
-  ol {
-    list-style: decimal;
-  }
+  ol { list-style: decimal; }
 
-  // 引用块
   blockquote {
     margin: 8px 0;
     padding: 6px 12px;
@@ -1276,13 +1681,9 @@ const formatTime = (time) => {
     background: #f9fafb;
     color: #666;
     font-size: 13px;
-
-    p {
-      margin: 0;
-    }
+    p { margin: 0; }
   }
 
-  // 代码行内
   code {
     padding: 2px 6px;
     background: #f0f2f5;
@@ -1292,7 +1693,6 @@ const formatTime = (time) => {
     color: #d63384;
   }
 
-  // 代码块
   pre {
     margin: 8px 0;
     padding: 12px 14px;
@@ -1310,14 +1710,8 @@ const formatTime = (time) => {
     }
   }
 
-  // 水平线
-  hr {
-    border: 0;
-    border-top: 1px solid #eee;
-    margin: 12px 0;
-  }
+  hr { border: 0; border-top: 1px solid #eee; margin: 12px 0; }
 
-  // 表格
   table {
     width: 100%;
     margin: 8px 0;
@@ -1330,7 +1724,6 @@ const formatTime = (time) => {
 
   thead {
     background: #f5f7fa;
-
     th {
       padding: 8px 12px;
       font-weight: 600;
@@ -1341,55 +1734,23 @@ const formatTime = (time) => {
 
   tbody {
     tr {
-      &:nth-child(even) {
-        background: #fafbfc;
-      }
-
-      &:hover {
-        background: #f0f5ff;
-      }
+      &:nth-child(even) { background: #fafbfc; }
+      &:hover { background: #f0f5ff; }
     }
-
-    td {
-      padding: 7px 12px;
-      color: #555;
-      border-bottom: 1px solid #f0f0f0;
-    }
+    td { padding: 7px 12px; color: #555; border-bottom: 1px solid #f0f0f0; }
   }
 
   th, td {
     text-align: left;
-
-    &:first-child {
-      padding-left: 14px;
-    }
-
-    &:last-child {
-      padding-right: 14px;
-    }
+    &:first-child { padding-left: 14px; }
+    &:last-child { padding-right: 14px; }
   }
 
-  // 图片
-  img {
-    max-width: 100%;
-    height: auto;
-    border-radius: 4px;
-  }
+  img { max-width: 100%; height: auto; border-radius: 4px; }
 
-  // 高亮标记
-  mark {
-    background: #fff3cd;
-    padding: 1px 4px;
-    border-radius: 2px;
-  }
+  mark { background: #fff3cd; padding: 1px 4px; border-radius: 2px; }
 }
 
-// 业务卡片组件容器
-.message-components {
-  margin-top: 8px;
-}
-
-// 打字光标动画
 .typing-cursor {
   display: inline;
   animation: blink 0.8s infinite;
@@ -1398,15 +1759,10 @@ const formatTime = (time) => {
 }
 
 @keyframes blink {
-  0%, 50% {
-    opacity: 1;
-  }
-  51%, 100% {
-    opacity: 0;
-  }
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
 }
 
-// 打字点动画（等待首字）
 .typing-dot {
   display: inline-block;
   width: 8px;
@@ -1416,28 +1772,15 @@ const formatTime = (time) => {
   background: #b0b8c1;
   animation: typing-pulse 1.2s infinite ease-in-out;
 
-  &:nth-child(2) {
-    animation-delay: 0.15s;
-  }
-
-  &:nth-child(3) {
-    margin-right: 0;
-    animation-delay: 0.3s;
-  }
+  &:nth-child(2) { animation-delay: 0.15s; }
+  &:nth-child(3) { margin-right: 0; animation-delay: 0.3s; }
 }
 
 @keyframes typing-pulse {
-  0%, 80%, 100% {
-    opacity: 0.35;
-    transform: translateY(0);
-  }
-  40% {
-    opacity: 1;
-    transform: translateY(-2px);
-  }
+  0%, 80%, 100% { opacity: 0.35; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
 }
 
-// 消息元信息
 .message-meta {
   margin: 6px 0 0 20px;
   font-size: 12px;
@@ -1445,7 +1788,6 @@ const formatTime = (time) => {
   color: #9ca3af;
 }
 
-// 消息操作
 .message-actions {
   display: flex;
   gap: 4px;
@@ -1453,33 +1795,23 @@ const formatTime = (time) => {
   opacity: 0;
   transition: opacity 0.18s ease;
 
-  .message-row:hover & {
-    opacity: 1;
-  }
+  .message-row:hover & { opacity: 1; }
 
   .ant-btn {
     color: #bbb;
     font-size: 13px;
-
-    &:hover {
-      color: #555;
-    }
+    &:hover { color: #555; }
   }
 }
 
-// 错误横幅
 .error-banner {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 0 4px;
-
-  .ant-alert {
-    flex: 1;
-  }
+  .ant-alert { flex: 1; }
 }
 
-// ===================== 输入区域 =====================
 .chat-input-area {
   flex: 0 0 auto;
   padding: 12px 24px 18px;
@@ -1519,14 +1851,8 @@ const formatTime = (time) => {
   line-height: 22px;
   overflow-y: hidden;
 
-  &::placeholder {
-    color: #8a8f98;
-  }
-
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-  }
+  &::placeholder { color: #8a8f98; }
+  &:disabled { cursor: not-allowed; opacity: 0.6; }
 }
 
 .send-button {
@@ -1544,26 +1870,13 @@ const formatTime = (time) => {
   font-size: 17px;
   transition: opacity 0.18s ease;
 
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.35;
-  }
+  &:disabled { cursor: not-allowed; opacity: 0.35; }
 }
 
-// ===================== 响应式 =====================
 @media (max-width: 768px) {
-  .message-row {
-    max-width: 95%;
-  }
-
-  .chat-messages {
-    padding: 16px;
-  }
-
-  .chat-input-area {
-    padding: 12px 16px;
-  }
-
+  .message-row { max-width: 95%; }
+  .chat-messages { padding: 16px; }
+  .chat-input-area { padding: 12px 16px; }
   .ai-chat-page {
     height: calc(100vh - 64px);
     margin: 0;

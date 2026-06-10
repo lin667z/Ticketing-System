@@ -45,4 +45,9 @@ public class AiMessageDO extends BaseDO {
      * Token 消耗
      */
     private Integer tokenCount;
+
+    /**
+     * 消息唯一标识(UUID)，前端 SSE 追踪用
+     */
+    private String messageUid;
 }

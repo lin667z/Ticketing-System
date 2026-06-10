@@ -4,7 +4,7 @@ import org.ticketing_system.biz.aiservice.dto.req.AiMemoryReqDTO;
 import org.ticketing_system.biz.aiservice.dto.resp.AiMemoryRespDTO;
 import org.ticketing_system.biz.aiservice.common.context.AiAuthenticatedUserContext;
 import org.ticketing_system.biz.aiservice.common.context.AiChatRequestContext;
-import org.ticketing_system.biz.aiservice.model.AiUserProfile;
+import org.ticketing_system.biz.aiservice.dto.domain.AiUserProfile;
 import reactor.core.publisher.Mono;
 
 import java.util.List;

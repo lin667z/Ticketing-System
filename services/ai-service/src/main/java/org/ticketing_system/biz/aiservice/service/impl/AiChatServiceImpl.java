@@ -7,9 +7,9 @@ import org.ticketing_system.biz.aiservice.dao.mapper.AiSessionMapper;
 import org.ticketing_system.biz.aiservice.dto.req.AiChatReqDTO;
 import org.ticketing_system.biz.aiservice.common.util.AiUserContextUtil;
 import org.ticketing_system.biz.aiservice.common.context.AiAuthenticatedUserContext;
-import org.ticketing_system.biz.aiservice.model.AiChatMessage;
+import org.ticketing_system.biz.aiservice.dto.domain.AiChatMessage;
 import org.ticketing_system.biz.aiservice.common.context.AiChatRequestContext;
-import org.ticketing_system.biz.aiservice.model.AiStreamChunk;
+import org.ticketing_system.biz.aiservice.dto.domain.AiStreamChunk;
 import org.ticketing_system.biz.aiservice.service.AiChatService;
 import org.ticketing_system.biz.aiservice.service.AiOrchestratorService;
 import org.ticketing_system.framework.starter.convention.exception.ClientException;
@@ -55,14 +55,15 @@ public class AiChatServiceImpl implements AiChatService {
             return Flux.just(AiStreamChunk.error(ex.getMessage()));
         }
 
-        // 构建当前用户消息
+        // 构建当前用户消息并设置到上下文
         AiChatMessage userMessage = AiChatMessage.user(
                 context.getSessionId(),
                 authenticatedUser.getUserId(),
                 requestParam.getMessage());
+        context.setCurrentMessage(userMessage);
 
         // 委托编排服务执行核心流程
-        return aiOrchestratorService.orchestrate(context, userMessage)
+        return aiOrchestratorService.orchestrate(context)
                 .doOnComplete(() -> log.info("AI 聊天流完成: sessionId={}, userId={}",
                         context.getSessionId(), context.getUserId()))
                 .doOnError(ex -> log.error("AI 聊天流异常: sessionId={}, userId={}, error={}",

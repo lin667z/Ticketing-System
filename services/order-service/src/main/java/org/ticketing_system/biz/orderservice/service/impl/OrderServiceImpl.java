@@ -48,6 +48,7 @@ import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -74,7 +75,6 @@ public class OrderServiceImpl implements OrderService {
 
     /** 订单查询时间范围：最近 N 天 */
     private static final int ORDER_QUERY_DAYS = 30;
-    private static final long FIRST_PAGE = 1L;
 
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
@@ -294,37 +294,85 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public PageResponse<TicketOrderDetailSelfRespDTO> pageSelfTicketOrder(TicketOrderSelfPageQueryReqDTO requestParam) {
+    public Map<String, Object> querySelfTicketOrders(TicketOrderSelfPageQueryReqDTO requestParam) {
         String userId = UserContext.getUserId();
         if (userId == null || userId.isBlank()) {
             throw new ClientException("未获取到当前登录用户");
         }
-        List<OrderDO> orders = querySelfOrdersByUserId(userId);
-        if (orders.isEmpty()) {
-            return buildSelfOrderPage(List.of(), requestParam.getCount(), 0);
-        }
-        LocalDateTime queryStartTime = resolveSelfOrderStartTime(requestParam.getDate(), orders);
-        if (queryStartTime == null) {
-            return buildSelfOrderPage(List.of(), requestParam.getCount(), 0);
-        }
-        Date startTime = toDate(queryStartTime.toLocalDate().atStartOfDay());
-        Date endTime = toDate(queryStartTime.toLocalDate().atTime(LocalTime.MAX));
-        List<OrderDO> matchedOrders = orders.stream()
-                .filter(each -> each.getOrderTime() != null)
-                .filter(each -> !each.getOrderTime().before(startTime) && !each.getOrderTime().after(endTime))
+
+        List<OrderDO> allOrders = querySelfOrdersByUserId(userId);
+        final LocalDate cutoff = LocalDate.now().minusDays(ORDER_QUERY_DAYS);
+        final Date cutoffDate = toDate(cutoff.atStartOfDay());
+
+        List<OrderDO> recentOrders = allOrders.stream()
+                .filter(o -> o.getOrderTime() != null)
+                .filter(o -> !o.getOrderTime().before(cutoffDate))
                 .toList();
-        Set<String> orderSnSet = matchedOrders.stream()
+
+        String date = requestParam.getDate();
+        Long count = requestParam.getCount();
+        boolean hasAnyParam = (date != null && !date.isBlank()) || count != null;
+        String message = null;
+
+        final Date startTime;
+        final Date endTime;
+
+        if (!hasAnyParam) {
+            if (recentOrders.isEmpty()) {
+                message = "系统只保存了最近 " + ORDER_QUERY_DAYS + " 天的订单记录，暂未查询到相关订单";
+                return buildResultMap(List.of(), message);
+            }
+            LocalDate latestDate = toLocalDate(recentOrders.get(0).getOrderTime());
+            startTime = toDate(latestDate.atStartOfDay());
+            endTime = toDate(latestDate.atTime(LocalTime.MAX));
+        } else if (date != null && !date.isBlank()) {
+            LocalDate specifiedDate;
+            try {
+                specifiedDate = LocalDate.parse(date);
+            } catch (DateTimeParseException ex) {
+                throw new ClientException("订单查询日期格式错误，请使用 yyyy-MM-dd");
+            }
+            if (specifiedDate.isBefore(cutoff)) {
+                message = "只能查询最近 " + ORDER_QUERY_DAYS + " 天的订单";
+                startTime = cutoffDate;
+                endTime = toDate(LocalDate.now().atTime(LocalTime.MAX));
+            } else {
+                startTime = toDate(specifiedDate.atStartOfDay());
+                endTime = toDate(specifiedDate.atTime(LocalTime.MAX));
+            }
+        } else {
+            startTime = cutoffDate;
+            endTime = toDate(LocalDate.now().atTime(LocalTime.MAX));
+        }
+
+        List<OrderDO> matched = recentOrders.stream()
+                .filter(o -> !o.getOrderTime().before(startTime) && !o.getOrderTime().after(endTime))
+                .toList();
+
+        if (matched.isEmpty()) {
+            if (message == null) {
+                message = "系统只保存了最近 " + ORDER_QUERY_DAYS + " 天的订单记录，暂未查询到相关订单";
+            }
+            return buildResultMap(List.of(), message);
+        }
+
+        Set<String> orderSnSet = matched.stream()
                 .map(OrderDO::getOrderSn)
                 .collect(Collectors.toSet());
-        Map<String, OrderDO> orderMap = matchedOrders.stream()
-                .collect(Collectors.toMap(OrderDO::getOrderSn, each -> each, (left, right) -> left, LinkedHashMap::new));
-        List<OrderItemDO> orderItems = querySelfOrderItems(userId, orderSnSet);
-        List<TicketOrderDetailSelfRespDTO> allRecords = orderItems.stream()
-                .filter(each -> orderMap.containsKey(each.getOrderSn()))
-                .map(each -> buildSelfOrderDetail(each, orderMap.get(each.getOrderSn())))
+        Map<String, OrderDO> orderMap = matched.stream()
+                .collect(Collectors.toMap(OrderDO::getOrderSn, o -> o, (a, b) -> a, LinkedHashMap::new));
+        List<OrderItemDO> items = querySelfOrderItems(userId, orderSnSet);
+
+        List<TicketOrderDetailSelfRespDTO> records = items.stream()
+                .filter(i -> orderMap.containsKey(i.getOrderSn()))
+                .map(i -> buildSelfOrderDetail(i, orderMap.get(i.getOrderSn())))
                 .toList();
-        List<TicketOrderDetailSelfRespDTO> limitedRecords = limitSelfOrderRecords(allRecords, requestParam.getCount());
-        return buildSelfOrderPage(limitedRecords, requestParam.getCount(), allRecords.size());
+
+        if (count != null && count > 0 && records.size() > count) {
+            records = records.subList(0, Math.toIntExact(count));
+        }
+
+        return buildResultMap(records, message);
     }
 
     private List<OrderDO> querySelfOrdersByUserId(String userId) {
@@ -346,43 +394,23 @@ public class OrderServiceImpl implements OrderService {
         return orderItemMapper.selectList(orderItemQueryWrapper);
     }
 
-    private LocalDateTime resolveSelfOrderStartTime(String date, List<OrderDO> orders) {
-        if (date != null && !date.isBlank()) {
-            try {
-                return java.time.LocalDate.parse(date).atStartOfDay();
-            } catch (DateTimeParseException ex) {
-                throw new ClientException("订单查询日期格式错误，请使用 yyyy-MM-dd");
-            }
-        }
-        if (orders.isEmpty()) {
-            return null;
-        }
-        Date latestOrderTime = orders.get(0).getOrderTime();
-        return latestOrderTime == null ? null : latestOrderTime.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
-    }
-
     private TicketOrderDetailSelfRespDTO buildSelfOrderDetail(OrderItemDO orderItemDO, OrderDO orderDO) {
         TicketOrderDetailSelfRespDTO actualResult = BeanUtil.convert(orderDO, TicketOrderDetailSelfRespDTO.class);
         BeanUtil.convertIgnoreNullAndBlank(orderItemDO, actualResult);
         return actualResult;
     }
 
-    private List<TicketOrderDetailSelfRespDTO> limitSelfOrderRecords(List<TicketOrderDetailSelfRespDTO> records, Long count) {
-        if (count == null || count < 1 || records.size() <= count) {
-            return records;
+    private Map<String, Object> buildResultMap(List<?> records, String message) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("records", records);
+        if (message != null) {
+            result.put("message", message);
         }
-        int limit = (int) Math.min(count, (long) Integer.MAX_VALUE);
-        return records.subList(0, limit);
+        return result;
     }
 
-    private PageResponse<TicketOrderDetailSelfRespDTO> buildSelfOrderPage(List<TicketOrderDetailSelfRespDTO> records, Long count, int total) {
-        long size = count == null || count < 1 ? records.size() : count;
-        return PageResponse.<TicketOrderDetailSelfRespDTO>builder()
-                .current(FIRST_PAGE)
-                .size(size)
-                .total((long) total)
-                .records(records)
-                .build();
+    private LocalDate toLocalDate(Date date) {
+        return date.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
     }
 
     private Date toDate(LocalDateTime value) {

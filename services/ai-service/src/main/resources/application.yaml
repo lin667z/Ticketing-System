@@ -140,17 +140,16 @@ ai:
     base-url: lb://ticketing-system-user-service
     connect-timeout: 5000
     response-timeout: 10000
-  rate-limit:
-    enabled: true
-    max-requests-per-minute: 10
-    max-requests-per-minute-anonymous: 3
   cache:
     user-profile-ttl-seconds: 300
     bloom-filter-enabled: true
   chat:
     max-history: 20
     tool-result-max-chars: 4000
-    context-ttl-seconds: 86400
+  working-memory:
+    ttl-seconds: 86400
+    max-recent-messages: 10
+    max-clarification-count: 3
     last-turns: 2
     summary-start-turn: 3
   agent:

@@ -36,9 +36,6 @@ public class AiProperties {
     /** 记忆管理配置 */
     private Memory memory = new Memory();
 
-    /** 分布式限流配置 */
-    private RateLimit rateLimit = new RateLimit();
-
     /** 缓存策略配置 */
     private Cache cache = new Cache();
 
@@ -49,6 +46,18 @@ public class AiProperties {
     private Agent agent = new Agent();
 
     private Remote remote = new Remote();
+
+    /** L1 工作记忆配置 */
+    private WorkingMemory workingMemory = new WorkingMemory();
+
+    /** L3 情景摘要配置 */
+    private Episodic episodic = new Episodic();
+
+    /** L4 长期记忆配置 */
+    private LongTermMemory longTermMemory = new LongTermMemory();
+
+    /** L5 知识/RAG 检索配置（铁路规则，预留） */
+    private Knowledge knowledge = new Knowledge();
 
     /**
      * AI 渠道详细配置
@@ -116,22 +125,8 @@ public class AiProperties {
         private String realModel;
         private int priority;
         private long timeoutMs = 30000;
+        private long gapTimeoutMs = 15000;
         private boolean enabled = true;
-    }
-
-    /**
-     * AI 分布式限流配置，区分认证与匿名用户
-     */
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class RateLimit {
-        /** 是否启用分布式限流 */
-        private boolean enabled = true;
-        /** 认证用户每分钟最大请求数 */
-        private int maxRequestsPerMinute = 10;
-        /** 匿名用户每分钟最大请求数 */
-        private int maxRequestsPerMinuteAnonymous = 3;
     }
 
     /**
@@ -158,12 +153,6 @@ public class AiProperties {
         private int maxHistory = 20;
         /** 工具结果回注最大字符数 */
         private int toolResultMaxChars = 4000;
-        /** 会话双轨上下文缓存 TTL */
-        private int contextTtlSeconds = 86400;
-        /** 保留的完整对话轮数 */
-        private int lastTurns = 2;
-        /** 超过该轮数后开始提取 Session Context Window */
-        private int summaryStartTurn = 3;
     }
 
     /**
@@ -177,8 +166,8 @@ public class AiProperties {
         private boolean enabled = true;
         /** Master Agent 生成的最大子任务数 */
         private int maxTasks = 5;
-        /** 单个 Worker Agent 任务超时时间 */
-        private int taskTimeoutMs = 10000;
+        /** 单个 Worker Agent 任务超时时间（毫秒），需大于 LLM 调用超时 */
+        private int taskTimeoutMs = 30000;
         /** 是否允许聚合器调用模型润色结果 */
         private boolean aggregatorLlmEnabled = true;
         /** Master Agent 输出 Token 限制 */
@@ -206,5 +195,57 @@ public class AiProperties {
         private int profileRetryAttempts = 1;
         private long profileRetryBackoffMs = 200L;
         private int maxConnections = 200;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class WorkingMemory {
+        private int ttlSeconds = 86400;
+        private int maxRecentMessages = 10;
+        private int maxClarificationCount = 3;
+        /** 保留的完整对话轮数（合并自 Chat.lastTurns） */
+        private int lastTurns = 2;
+        /** 超过该轮数后开始提取会话摘要（合并自 Chat.summaryStartTurn） */
+        private int summaryStartTurn = 3;
+        /** 对话轮数不超过该阈值时保留全量历史，超过后才截断到 maxRecentMessages */
+        private int fullHistoryMaxTurns = 10;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Episodic {
+        private boolean autoFinalize = true;
+        private int maxEpisodesPerUser = 20;
+        private int finalizeMinTurns = 4;
+        private boolean crossSessionInject = false;
+        private boolean llmSummaryEnabled = false;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class LongTermMemory {
+        private boolean autoDigestEnabled = true;
+        private int maxPerUser = 50;
+        private int retrievalTopK = 8;
+        private double decayFactor = 0.95;
+        private int digestMinEpisodeTurns = 4;
+    }
+
+    /**
+     * L5 知识/RAG 检索配置（铁路规则检索，当前为预留占位）
+     */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Knowledge {
+        /** 是否启用规则知识检索；关闭时检索器返回空，不影响主流程 */
+        private boolean enabled = false;
+        /** 单次注入的规则片段上限 */
+        private int topK = 3;
+        /** 检索模式：KEYWORD（关键词，降级）/ EMBEDDING（向量，后期） */
+        private String mode = "KEYWORD";
     }
 }

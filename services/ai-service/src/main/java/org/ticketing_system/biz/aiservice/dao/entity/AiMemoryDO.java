@@ -26,19 +26,18 @@ public class AiMemoryDO extends BaseDO {
      * 记忆键名
      */
     private String memoryKey;
-
     /**
-     * 内容
+     * 记忆内容
      */
     private String memoryContent;
 
     /**
-     * 类型 0：短期 1：长期
+     * 记忆类型
      */
     private Integer memoryType;
 
     /**
-     * 权重，越大优先级越高
+     * 权重
      */
     private Integer weight;
 
@@ -46,4 +45,24 @@ public class AiMemoryDO extends BaseDO {
      * 过期时间
      */
     private Date expireTime;
+
+    /**
+     * 偏好类型
+     */
+    private String preferenceType;
+
+    /**
+     * 偏好键名
+     */
+    private String preferenceKey;
+
+    /**
+     * 偏好值
+     */
+    private String preferenceValue;
+
+    /**
+     * 来源
+     */
+    private String source;
 }

@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.ticketing_system.biz.aiservice.dto.req.AiChatReqDTO;
-import org.ticketing_system.biz.aiservice.model.AiStreamChunk;
+import org.ticketing_system.biz.aiservice.dto.domain.AiStreamChunk;
 import org.ticketing_system.biz.aiservice.common.enums.AiStreamEventType;
 import org.ticketing_system.biz.aiservice.service.AiChatService;
 import reactor.core.publisher.Flux;
@@ -45,12 +45,13 @@ public class AiChatController {
     }
 
     /**
-     * 解析事件名称
+     * 解析当前 chunk 对应的 SSE event 名称
+     * 使用小写命名，使前端可以经由原生 EventSource / SSE event 字段路由
      */
     private String resolveEventName(AiStreamChunk chunk) {
         if (chunk == null || chunk.getEventType() == null) {
             return "message";
         }
-        return chunk.getEventType() == AiStreamEventType.ERROR ? "error" : "message";
+        return chunk.getEventType().name().toLowerCase();
     }
 }

@@ -23,8 +23,6 @@ import java.util.concurrent.atomic.AtomicReference;
 @Slf4j
 public class TicketQueryFacade {
 
-    private static final long DEFAULT_ORDER_PAGE = 1L;
-    private static final long DEFAULT_ORDER_SIZE = 10L;
     private static final Duration STATION_CACHE_TTL = Duration.ofMinutes(30);
 
     private final TicketRemoteWebClient ticketRemoteWebClient;
@@ -70,20 +68,19 @@ public class TicketQueryFacade {
     }
 
     /**
-     * 查询当前登录用户的本人订单
+     * 查询当前登录用户的本人订单（非分页，30天硬上限，LIMIT 模式）
      *
      * @param userContext 用户认证上下文
      * @param date        可选的下单日期
-     * @param count       可选的返回条数
+     * @param count       可选的返回条数(null=不限制，0=所有，>0=限制)
      * @return 业务查询结果
      */
-    public Mono<BusinessQueryResult> pageSelfOrders(AiAuthenticatedUserContext userContext,
-                                                    String date,
-                                                    Long count) {
-        Long actualCount = count == null || count < 1 ? null : count;
-        return orderRemoteWebClient.pageSelfOrders(userContext, DEFAULT_ORDER_PAGE, DEFAULT_ORDER_SIZE, date, actualCount)
+    public Mono<BusinessQueryResult> querySelfOrders(AiAuthenticatedUserContext userContext,
+                                                     String date,
+                                                     Long count) {
+        return orderRemoteWebClient.querySelfOrders(userContext, date, count)
                 .map(data -> BusinessQueryResult.builder()
-                        .summary(formatter.formatSelfOrders(data, date, actualCount))
+                        .summary(formatter.formatSelfOrders(data, date, count))
                         .componentType("order_card")
                         .componentData(formatter.buildSelfOrderComponent(data))
                         .rawData(data)

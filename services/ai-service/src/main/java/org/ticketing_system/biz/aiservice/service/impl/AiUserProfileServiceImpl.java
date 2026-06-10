@@ -12,11 +12,12 @@ import org.springframework.web.reactive.function.client.WebClientRequestExceptio
 import org.ticketing_system.biz.aiservice.config.AiProperties;
 import org.ticketing_system.biz.aiservice.dao.entity.AiMemoryDO;
 import org.ticketing_system.biz.aiservice.dao.mapper.AiMemoryMapper;
+import org.ticketing_system.biz.aiservice.memory.longterm.LongTermMemoryService;
 import org.ticketing_system.biz.aiservice.dto.req.AiMemoryReqDTO;
 import org.ticketing_system.biz.aiservice.dto.resp.AiMemoryRespDTO;
 import org.ticketing_system.biz.aiservice.common.context.AiAuthenticatedUserContext;
 import org.ticketing_system.biz.aiservice.common.context.AiChatRequestContext;
-import org.ticketing_system.biz.aiservice.model.AiUserProfile;
+import org.ticketing_system.biz.aiservice.dto.domain.AiUserProfile;
 import org.ticketing_system.biz.aiservice.remote.UserProfileWebClient;
 import org.ticketing_system.biz.aiservice.remote.dto.UserQueryActualRespDTO;
 import org.ticketing_system.biz.aiservice.service.AiUserProfileService;
@@ -65,15 +66,18 @@ public class AiUserProfileServiceImpl implements AiUserProfileService {
     private final AiMemoryMapper aiMemoryMapper;
     private final StringRedisTemplate stringRedisTemplate;
     private final AiProperties aiProperties;
+    private final LongTermMemoryService longTermMemoryService;
 
     public AiUserProfileServiceImpl(UserProfileWebClient userProfileWebClient,
             AiMemoryMapper aiMemoryMapper,
             StringRedisTemplate stringRedisTemplate,
-            AiProperties aiProperties) {
+            AiProperties aiProperties,
+            LongTermMemoryService longTermMemoryService) {
         this.userProfileWebClient = userProfileWebClient;
         this.aiMemoryMapper = aiMemoryMapper;
         this.stringRedisTemplate = stringRedisTemplate;
         this.aiProperties = aiProperties;
+        this.longTermMemoryService = longTermMemoryService;
     }
 
     @Override
@@ -320,25 +324,16 @@ public class AiUserProfileServiceImpl implements AiUserProfileService {
     }
 
     /**
-     * 查询长期记忆实体列表
+     * 查询长期记忆实体列表。
      *
-     * <p>
-     * 使用 MyBatis-Plus {@link Page} 进行分页查询，避免字符串拼接 LIMIT
-     * </p>
+     * <p>统一委托 {@link LongTermMemoryService}：limit 非空走权重 Top-K（提示词注入），
+     * limit 为空走全量未过期列表（前端管理）。避免与长期记忆服务的查询逻辑重复。</p>
      */
     private List<AiMemoryDO> queryLongTermMemoryEntities(Long userId, Integer limit) {
-        Date now = new Date();
-        LambdaQueryWrapper<AiMemoryDO> queryWrapper = Wrappers.lambdaQuery(AiMemoryDO.class)
-                .eq(AiMemoryDO::getUserId, userId)
-                .eq(AiMemoryDO::getMemoryType, LONG_TERM_MEMORY_TYPE)
-                .and(wrapper -> wrapper.isNull(AiMemoryDO::getExpireTime).or().gt(AiMemoryDO::getExpireTime, now))
-                .orderByDesc(AiMemoryDO::getWeight)
-                .orderByDesc(AiMemoryDO::getUpdateTime);
         if (limit != null && limit > 0) {
-            Page<AiMemoryDO> page = new Page<>(DEFAULT_PAGE_NUM, limit);
-            return aiMemoryMapper.selectPage(page, queryWrapper).getRecords();
+            return longTermMemoryService.queryForPrompt(userId, null);
         }
-        return aiMemoryMapper.selectList(queryWrapper);
+        return longTermMemoryService.listByUserId(userId);
     }
 
     /**

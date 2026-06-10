@@ -1,9 +1,9 @@
 package org.ticketing_system.biz.aiservice.agent.worker;
 
-import org.ticketing_system.biz.aiservice.agent.AgentTask;
-import org.ticketing_system.biz.aiservice.agent.AgentTaskResult;
-import org.ticketing_system.biz.aiservice.agent.AgentType;
-import org.ticketing_system.biz.aiservice.agent.AgentTraceEmitter;
+import org.ticketing_system.biz.aiservice.agent.model.AgentTask;
+import org.ticketing_system.biz.aiservice.agent.model.AgentTaskResult;
+import org.ticketing_system.biz.aiservice.agent.core.AgentType;
+import org.ticketing_system.biz.aiservice.agent.core.AgentTraceEmitter;
 import reactor.core.publisher.Mono;
 
 /**

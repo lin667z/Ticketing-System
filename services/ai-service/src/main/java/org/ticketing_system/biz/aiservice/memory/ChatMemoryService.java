@@ -20,13 +20,14 @@ import java.util.List;
 @Service
 public class ChatMemoryService {
 
-    // 批量插入的批次大小参考值
+    // 批量插入批次大小参考值
     private static final int BATCH_SIZE_HINT = 50;
     // 未删除标记值
     private static final int DEL_FLAG_NORMAL = DelEnum.NORMAL.code();
     // 默认最大历史消息数
     private static final int DEFAULT_MAX_MESSAGES = 20;
 
+    // 消息 Mapper
     private final AiMessageMapper aiMessageMapper;
 
     public ChatMemoryService(AiMessageMapper aiMessageMapper) {
@@ -34,11 +35,7 @@ public class ChatMemoryService {
     }
 
     /**
-     * 获取指定会话最近的历史消息列表，使用分页查询保证性能与安全
-     *
-     * @param sessionId   会话 ID
-     * @param maxMessages 最大消息条数
-     * @return 按时间升序排列的消息列表
+     * 获取指定会话最近的历史消息列表
      */
     @Transactional(readOnly = true)
     public List<AiMessageDO> getRecentMessages(Long sessionId, int maxMessages) {
@@ -69,10 +66,6 @@ public class ChatMemoryService {
 
     /**
      * 获取最近 N 轮完整对话
-     *
-     * @param sessionId 会话 ID
-     * @param pairCount 对话轮数
-     * @return 最近消息，按创建时间升序
      */
     @Transactional(readOnly = true)
     public List<AiMessageDO> getRecentTurns(Long sessionId, int pairCount) {
@@ -84,10 +77,6 @@ public class ChatMemoryService {
 
     /**
      * 获取会话全量历史，用于 Redis 上下文丢失后的恢复
-     *
-     * @param sessionId 会话 ID
-     * @param userId    用户 ID
-     * @return 全量消息，按创建时间升序
      */
     @Transactional(readOnly = true)
     public List<AiMessageDO> getAllMessages(Long sessionId, Long userId) {
@@ -104,8 +93,6 @@ public class ChatMemoryService {
 
     /**
      * 将单条消息持久化到数据库
-     *
-     * @param message 消息实体
      */
     @Transactional(rollbackFor = Exception.class)
     public void saveMessage(AiMessageDO message) {
@@ -119,9 +106,7 @@ public class ChatMemoryService {
     }
 
     /**
-     * 批量保存消息，利用事务保证同一轮对话消息的原子性写入
-     *
-     * @param messages 消息实体列表
+     * 批量保存消息
      */
     @Transactional(rollbackFor = Exception.class)
     public void saveMessagesBatch(List<AiMessageDO> messages) {
@@ -147,8 +132,6 @@ public class ChatMemoryService {
 
     /**
      * 逻辑删除指定会话的所有历史消息
-     *
-     * @param sessionId 会话 ID
      */
     @Transactional(rollbackFor = Exception.class)
     public void deleteSessionMessages(Long sessionId) {

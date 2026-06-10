@@ -7,11 +7,10 @@ import org.ticketing_system.biz.orderservice.dto.req.TicketOrderItemQueryReqDTO;
 import org.ticketing_system.biz.orderservice.dto.req.TicketOrderPageQueryReqDTO;
 import org.ticketing_system.biz.orderservice.dto.req.TicketOrderSelfPageQueryReqDTO;
 import org.ticketing_system.biz.orderservice.dto.resp.TicketOrderDetailRespDTO;
-import org.ticketing_system.biz.orderservice.dto.resp.TicketOrderDetailSelfRespDTO;
 import org.ticketing_system.biz.orderservice.dto.resp.TicketOrderPassengerDetailRespDTO;
+import org.ticketing_system.framework.starter.convention.page.PageResponse;
 import org.ticketing_system.biz.orderservice.service.OrderItemService;
 import org.ticketing_system.biz.orderservice.service.OrderService;
-import org.ticketing_system.framework.starter.convention.page.PageResponse;
 import org.ticketing_system.framework.starter.convention.result.Result;
 import org.ticketing_system.framework.starter.web.Results;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 车票订单接口控制层
@@ -58,11 +58,11 @@ public class TicketOrderController {
     }
 
     /**
-     * 分页查询本人车票订单
+     * 查询本人车票订单（非分页，30天硬上限，LIMIT 模式）
      */
-    @GetMapping("/api/order-service/order/ticket/self/page")
-    public Result<PageResponse<TicketOrderDetailSelfRespDTO>> pageSelfTicketOrder(TicketOrderSelfPageQueryReqDTO requestParam) {
-        return Results.success(orderService.pageSelfTicketOrder(requestParam));
+    @GetMapping("/api/order-service/order/ticket/self/query")
+    public Result<Map<String, Object>> querySelfTicketOrders(TicketOrderSelfPageQueryReqDTO requestParam) {
+        return Results.success(orderService.querySelfTicketOrders(requestParam));
     }
 
     /**

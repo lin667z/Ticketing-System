@@ -15,5 +15,9 @@ public enum LlmStreamResponseType {
     /**
      * 重试
      */
-    RETRYING
+    RETRYING,
+    /**
+     * 心跳保活（无数据时周期性发送，不下发至应用层）
+     */
+    HEARTBEAT
 }

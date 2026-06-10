@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 订单服务远程调用组件，基于 WebClient 提供非阻塞异步接口。
@@ -26,14 +27,12 @@ import java.util.Map;
 @Component
 public class OrderRemoteWebClient {
 
-    /** 响应超时时间（秒） */
+    // 响应超时时间（秒）
     private static final int DEFAULT_RESPONSE_TIMEOUT_MS = 5000;
-
-    /** 订单查询接口路径 */
+    // 订单查询接口路径
     private static final String ORDER_QUERY_PATH = "/api/order-service/order/ticket/query";
-
-    /** 本人订单分页查询接口路径 */
-    private static final String ORDER_SELF_PAGE_PATH = "/api/order-service/order/ticket/self/page";
+    // 本人订单查询接口路径（非分页，30天硬上限，LIMIT 模式）
+    private static final String ORDER_SELF_QUERY_PATH = "/api/order-service/order/ticket/self/query";
 
     private final WebClient webClient;
     private final AiProperties aiProperties;
@@ -49,7 +48,7 @@ public class OrderRemoteWebClient {
     }
 
     /**
-     * 根据订单号查询订单详情。
+     * 根据订单号查询订单详情
      */
     public Mono<Map<String, Object>> queryOrderBySn(String orderSn) {
         log.info("调用 order-service 查询订单: orderSn={}", orderSn);
@@ -80,16 +79,14 @@ public class OrderRemoteWebClient {
     }
 
     /**
-     * 分页查询当前登录用户的订单
+     * 查询当前登录用户的订单（非分页，30天硬上限，LIMIT 模式）
      */
-    public Mono<Map<String, Object>> pageSelfOrders(AiAuthenticatedUserContext userContext, long current, long size, String date, Long count) {
-        log.info("调用 order-service 查询本人订单: userId={}, current={}, size={}, date={}, count={}",
-                userContext == null ? null : userContext.getUserId(), current, size, date, count);
+    public Mono<Map<String, Object>> querySelfOrders(AiAuthenticatedUserContext userContext, String date, Long count) {
+        log.info("调用 order-service 查询本人订单: userId={}, date={}, count={}",
+                userContext == null ? null : userContext.getUserId(), date, count);
         return webClient.get()
                 .uri(uriBuilder -> uriBuilder
-                        .path(ORDER_SELF_PAGE_PATH)
-                        .queryParam("current", current)
-                        .queryParam("size", size)
+                        .path(ORDER_SELF_QUERY_PATH)
                         .queryParamIfPresent("date", optionalText(date))
                         .queryParamIfPresent("count", java.util.Optional.ofNullable(count))
                         .build())
@@ -114,7 +111,7 @@ public class OrderRemoteWebClient {
     }
 
     /**
-     * 将用户信息填充至请求头。
+     * 将用户信息填充至请求头
      */
     private void fillUserHeaders(HttpHeaders headers, AiAuthenticatedUserContext userContext) {
         if (userContext == null) {
@@ -136,10 +133,10 @@ public class OrderRemoteWebClient {
     }
 
     /**
-     * 将空字符串转换为缺省查询参数。
+     * 将空字符串转换为缺省查询参数
      */
     private java.util.Optional<String> optionalText(String value) {
-        return value == null || value.isBlank() ? java.util.Optional.empty() : java.util.Optional.of(value);
+        return value == null || value.isBlank() ? Optional.empty() : Optional.of(value);
     }
 
     private int getResponseTimeoutMs() {

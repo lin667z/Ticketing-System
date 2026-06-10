@@ -47,4 +47,24 @@ public class AiMemoryRespDTO {
      * 更新时间
      */
     private Date updateTime;
+
+    /**
+     * 偏好类型
+     */
+    private String preferenceType;
+
+    /**
+     * 偏好键
+     */
+    private String preferenceKey;
+
+    /**
+     * 偏好值
+     */
+    private String preferenceValue;
+
+    /**
+     * 来源
+     */
+    private String source;
 }

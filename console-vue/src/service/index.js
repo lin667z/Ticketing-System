@@ -334,6 +334,53 @@ const getConversationDetail = async (id) => {
     return data
 }
 
+// AI 长期记忆管理 API
+
+const listMemories = async () => {
+    const {data} = await http({
+        method: 'GET',
+        url: '/api/ai-service/profile/memory'
+    })
+    return data
+}
+
+const createMemory = async (body) => {
+    const {data} = await http({
+        method: 'POST',
+        url: '/api/ai-service/profile/memory',
+        data: body
+    })
+    return data
+}
+
+const updateMemory = async (id, body) => {
+    const {data} = await http({
+        method: 'PUT',
+        url: `/api/ai-service/profile/memory/${id}`,
+        data: body
+    })
+    return data
+}
+
+const deleteMemory = async (id) => {
+    const {data} = await http({
+        method: 'DELETE',
+        url: `/api/ai-service/profile/memory/${id}`
+    })
+    return data
+}
+
+// AI 消息反馈 API
+
+const submitFeedback = async (body) => {
+    const {data} = await http({
+        method: 'POST',
+        url: '/api/ai-service/feedback',
+        data: body
+    })
+    return data
+}
+
 export {
     fetchLogin,
     fetchRegister,
@@ -361,5 +408,10 @@ export {
     deleteConversation,
     renameConversation,
     getConversationList,
-    getConversationDetail
+    getConversationDetail,
+    listMemories,
+    createMemory,
+    updateMemory,
+    deleteMemory,
+    submitFeedback
 }

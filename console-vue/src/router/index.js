@@ -125,6 +125,13 @@ const routes = [
     name: 'AiChat',
     component: () => import('@/views/ai-chat/index.vue'),
     meta: { requiresAuth: true }
+  },
+  {
+    label: 'AI 记忆管理',
+    path: '/ai-memory',
+    name: 'aiMemory',
+    component: () => import('@/views/ai-memory/index.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 

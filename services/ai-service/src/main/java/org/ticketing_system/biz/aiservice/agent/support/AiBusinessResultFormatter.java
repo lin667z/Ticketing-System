@@ -88,24 +88,42 @@ public class AiBusinessResultFormatter {
      */
     public String formatSelfOrders(Map<String, Object> pageData, String date, Long count) {
         List<?> records = getRecords(pageData);
+        String backendMessage = pageData == null ? null : (String) pageData.get("message");
         String actualDate = resolveOrderQueryDate(records, date);
+
         if (records.isEmpty()) {
+            if (backendMessage != null) {
+                return backendMessage;
+            }
             if (!UNKNOWN.equals(actualDate)) {
                 return "未查询到你在 " + actualDate + " 买的车票。你可以提供其他日期或条数再查一次";
             }
             return "未查询到你的近期车票订单。你可以提供具体日期或条数再查一次";
         }
+
         StringBuilder builder = new StringBuilder(getResultMaxChars());
         if (!UNKNOWN.equals(actualDate)) {
             builder.append("查询到你在 ").append(actualDate).append(" 买的车票");
         } else {
             builder.append("查询到你的车票订单");
         }
-        if (count != null) {
+        if (count != null && count > 0) {
             builder.append("，展示 ").append(count).append(" 条");
+        } else if (count != null && count == 0) {
+            builder.append("，展示全部 ").append(records.size()).append(" 条");
         }
         builder.append("：\n");
-        int displayCount = Math.min(records.size(), getOrderDisplayCount());
+
+        int userRequestedCount;
+        if (count != null && count > 0) {
+            userRequestedCount = Math.toIntExact(count);
+        } else if (count != null && count == 0) {
+            userRequestedCount = records.size();
+        } else {
+            userRequestedCount = getOrderDisplayCount();
+        }
+        int displayCount = Math.min(records.size(), userRequestedCount);
+
         for (int index = 0; index < displayCount; index++) {
             Object item = records.get(index);
             if (item instanceof Map<?, ?> order) {
@@ -116,7 +134,10 @@ public class AiBusinessResultFormatter {
         if (records.size() > displayCount) {
             builder.append("...还有 ").append(records.size() - displayCount).append(" 条订单未展示");
         }
-        builder.append("如需进一步查询，可以告诉我具体日期或要查看的条数");
+        if (backendMessage != null) {
+            builder.append('\n').append(backendMessage);
+        }
+        builder.append("\n如需进一步查询，可以告诉我具体日期或要查看的条数");
         return truncate(builder.toString());
     }
 
@@ -235,6 +256,10 @@ public class AiBusinessResultFormatter {
      * 拼接单条个人订单总结
      */
     private void appendSelfOrderSummary(StringBuilder builder, Map<?, ?> order) {
+        String orderSn = safeGet(order, "orderSn", "");
+        if (!orderSn.isBlank()) {
+            builder.append("订单号 ").append(maskOrderSn(orderSn)).append("，");
+        }
         builder.append(safeGet(order, "trainNumber", UNKNOWN));
         builder.append(" ");
         builder.append(safeGet(order, "departure", UNKNOWN)).append(" -> ").append(safeGet(order, "arrival", UNKNOWN));
@@ -247,6 +272,10 @@ public class AiBusinessResultFormatter {
         String amount = safeGet(order, "amount", "");
         if (!amount.isBlank()) {
             builder.append("，金额 ").append(formatPrice(amount)).append(" 元");
+        }
+        String realName = safeGet(order, "realName", "");
+        if (!realName.isBlank()) {
+            builder.append("，乘车人 ").append(realName);
         }
         builder.append('\n');
     }

@@ -1,6 +1,6 @@
 package org.ticketing_system.biz.aiservice.common.util;
 
-import org.ticketing_system.biz.aiservice.client.dto.LlmRequest;
+import org.ticketing_system.biz.aiservice.llm.dto.LlmRequest;
 import org.ticketing_system.biz.aiservice.session.context.SessionSlotState;
 
 import java.util.List;
@@ -8,7 +8,7 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
- * Shared predicates for deciding whether a message needs ticketing business context.
+ * 判断消息是否涉及票务业务上下文的共享谓词
  */
 public final class AiBusinessContextSignals {
 
@@ -58,11 +58,11 @@ public final class AiBusinessContextSignals {
         if (slotState == null) {
             return false;
         }
-        SessionSlotState.TicketSlot ticket = slotState.getTicket();
+        if (slotState.hasAnyTicketRoute()) {
+            return true;
+        }
         SessionSlotState.OrderQuerySlot order = slotState.getOrderQuery();
-        return ticket != null
-                && (!isBlank(ticket.getDeparture()) || !isBlank(ticket.getArrival()) || !isBlank(ticket.getDate()) || !isBlank(ticket.getTrainNumber()))
-                || order != null && (!isBlank(order.getDate()) || order.getCount() != null);
+        return order != null && (!isBlank(order.getDate()) || order.getCount() != null);
     }
 
     public static boolean isContextDependent(String text) {

@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Compressed non-structured context. It must never be used as executable input.
+ * 压缩后的非结构化上下文，绝不可作为可执行输入使用
  */
 @Data
 @Builder

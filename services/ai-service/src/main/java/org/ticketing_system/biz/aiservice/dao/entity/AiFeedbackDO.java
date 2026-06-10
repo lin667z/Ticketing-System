@@ -31,6 +31,11 @@ public class AiFeedbackDO extends BaseDO {
     private Long userId;
 
     /**
+     * 会话 ID
+     */
+    private Long sessionId;
+
+    /**
      * 反馈类型 0：点赞 1：点踩
      */
     private Integer feedbackType;

@@ -1,7 +1,7 @@
 package org.ticketing_system.biz.aiservice.service;
 
 import org.ticketing_system.biz.aiservice.dto.req.AiChatReqDTO;
-import org.ticketing_system.biz.aiservice.model.AiStreamChunk;
+import org.ticketing_system.biz.aiservice.dto.domain.AiStreamChunk;
 import reactor.core.publisher.Flux;
 
 /**

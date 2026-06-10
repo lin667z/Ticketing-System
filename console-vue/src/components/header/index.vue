@@ -104,7 +104,7 @@
             :key="msg.id"
             :class="['message-row', msg.role]"
           >
-            <div class="message-bubble">
+            <div :class="['message-bubble', msg.contentStyle ? 'msg-style-' + msg.contentStyle : '']">
               <template v-if="msg.streaming && !msg.content && !msg.reasoningContent">
                 <span class="typing-dot"></span>
                 <span class="typing-dot"></span>
@@ -237,7 +237,6 @@ import { reactive, toRefs, watch, ref, nextTick } from 'vue'
 import {
   fetchLogout,
   fetchAiChatStream,
-  createConversation,
   getConversationList,
   getConversationDetail,
   deleteConversation
@@ -496,7 +495,8 @@ const sendMessage = async () => {
     reasoningContent: '',
     reasoningExpanded: false,
     meta: '铁宝 · AI Agent · 正在输入',
-    streaming: true
+    streaming: true,
+    contentStyle: null
   })
 
   chatMessages.value.push(userMessage, aiMessage)
@@ -508,13 +508,6 @@ const sendMessage = async () => {
   scrollToBottom()
 
   try {
-    if (!currentConversationId.value) {
-      const createRes = await createConversation()
-      if (createRes.success && createRes.data) {
-        currentConversationId.value = createRes.data.id
-      }
-    }
-
     await fetchAiChatStream(
       {
         sessionId: currentConversationId.value,
@@ -537,6 +530,17 @@ const sendMessage = async () => {
             return
           }
 
+          if (chunk.eventType === 'STAGE') {
+            aiMessage.meta = '铁宝 · AI Agent · ' + (chunk.delta || '正在处理')
+            scrollToBottom()
+            return
+          }
+          if (chunk.eventType === 'RETRYING') {
+            aiMessage.meta = '铁宝 · AI Agent · ' + (chunk.delta || '正在重试')
+            scrollToBottom()
+            return
+          }
+
           if (chunk.eventType === 'TOOL_START') {
             aiMessage.meta = '铁宝 · AI Agent · 正在调用工具查询...'
           } else if (chunk.eventType === 'TOOL_END') {
@@ -545,8 +549,11 @@ const sendMessage = async () => {
             aiMessage.meta = '铁宝 · AI Agent · 正在询问'
           }
 
-          if (chunk.delta) {
+          if (chunk.delta && (chunk.eventType === 'CHAT_CHUNK' || chunk.eventType === 'ASK_USER')) {
             aiMessage.content += chunk.delta
+          }
+          if (chunk.contentStyle && !aiMessage.contentStyle) {
+            aiMessage.contentStyle = chunk.contentStyle
           }
 
           if (chunk.reasoningDelta) {
@@ -959,6 +966,59 @@ const logout = () => {
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.msg-style-greeting {
+  background: linear-gradient(135deg, #e6f4ff 0%, #f0f5ff 100%);
+  border: 1px solid #bae0ff;
+  color: #1a3352;
+}
+
+.msg-style-clarification {
+  background: #fffbe6;
+  border: 1px solid #ffe58f;
+  border-left: 3px solid #faad14;
+  color: #5c4a00;
+}
+
+.msg-style-summary {
+  background: #f6ffed;
+  border: 1px solid #b7eb8f;
+  color: #1f3a12;
+}
+
+.msg-style-suggestion {
+  background: #f0f5ff;
+  border: 1px solid #adc6ff;
+  border-left: 3px solid #597ef7;
+  color: #1a2852;
+}
+
+.msg-style-info {
+  background: #e6f7ff;
+  border: 1px solid #91d5ff;
+  color: #1a3a52;
+}
+
+.msg-style-success {
+  background: #f6ffed;
+  border: 1px solid #95de64;
+  border-left: 3px solid #52c41a;
+  color: #1f3a12;
+}
+
+.msg-style-warning {
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+  border-left: 3px solid #fa8c16;
+  color: #5c3a00;
+}
+
+.msg-style-error {
+  background: #fff2f0;
+  border: 1px solid #ffccc7;
+  border-left: 3px solid #ff4d4f;
+  color: #5c0011;
 }
 
 .reasoning-block {

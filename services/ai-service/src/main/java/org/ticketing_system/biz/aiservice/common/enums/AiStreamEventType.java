@@ -28,6 +28,10 @@ public enum AiStreamEventType {
     TOOL_START,
     TOOL_END,
     /**
+     * 阶段状态（用户可见的进度指示，不受 traceEnabled 影响）
+     */
+    STAGE,
+    /**
      * 结构化组件数据（如车票、订单卡片，delta 为完整 JSON）
      */
     COMPONENT
